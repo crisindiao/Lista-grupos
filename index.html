@@ -1069,38 +1069,41 @@ const ROLE_LABEL = {
 };
 const ROLE_COLORS = {
   "": "#6b6560",
-  "Pub. Batizado": "#6b6560",
-  "Pub. Não Batizado": "#4a7a6a",
+  "Pub. Batizado": "#5a5654",
+  "Pub. Não Batizado": "#5a5654",
   "Ancião": "#8a3b3b",
-  "Servo Ministerial": "#3b6e8a",
+  "Servo Ministerial": "#2a6e9a",
   "Superintendente": "#a3701f",
-  "Ajudante": "#5a8a5a",
+  "Ajudante": "#a3701f",
 };
-// Cores de fundo do card por cargo (tela) — só SG e Ajudante têm destaque amarelo
+// Cores de fundo do card por cargo (tela)
 const ROLE_BG = {
-  "": "#232122",
-  "Ancião": "#232122",
-  "Servo Ministerial": "#232122",
   "Superintendente": "#3a2d00",
-  "Ajudante": "#2e2500",
+  "Ajudante":        "#2e2500",
+  "Ancião":          "#2d1010",
+  "Servo Ministerial":"#0e2233",
+  "pioneer":         "#1e0f2e",
 };
 const ROLE_BORDER = {
-  "": "#2a292a",
-  "Ancião": "#2a292a",
-  "Servo Ministerial": "#2a292a",
   "Superintendente": "#c8980a",
-  "Ajudante": "#a07800",
+  "Ajudante":        "#a07800",
+  "Ancião":          "#8a3b3b",
+  "Servo Ministerial":"#2a6e9a",
+  "pioneer":         "#7a3b8a",
 };
 
 // Cor de fundo da linha na impressão por cargo
 const PRINT_ROW_BG = {
   "Superintendente": "#fff8d6",
   "Ajudante":        "#fffbe8",
+  "Ancião":          "#fff0f0",
+  "Servo Ministerial":"#eef5ff",
+  "pioneer":         "#f5eeff",
 };
 
 const PIONEER_ABBR = "PR";
 const PIONEER_LABEL = "Pioneiro(a) Regular";
-const PIONEER_COLOR = "#2f7d5c";
+const PIONEER_COLOR = "#7a3b8a";
 const STORAGE_KEY = "jardim-ivete-grupos-v4";
 
 let state = null; // { alegria:[{name,role}], ... }
@@ -1187,15 +1190,13 @@ function render(){
       li.dataset.group = g.key;
       li.dataset.idx = idx;
 
-      // Cor do card: SG > AJG > sem destaque
-      const hasSG = p.roles.includes("Superintendente");
-      const hasAJG = p.roles.includes("Ajudante");
-      if(hasSG){
-        li.style.setProperty("--person-bg", "#3a2d00");
-        li.style.setProperty("--person-border", "#c8980a");
-      } else if(hasAJG){
-        li.style.setProperty("--person-bg", "#2e2500");
-        li.style.setProperty("--person-border", "#a07800");
+      // Cor do card por prioridade: SG > AJG > AC > SM > PR > neutro
+      const priority = ["Superintendente","Ajudante","Ancião","Servo Ministerial"];
+      const topRole = priority.find(r => p.roles.includes(r));
+      const roleKey = topRole || (p.pioneer ? "pioneer" : null);
+      if(roleKey){
+        li.style.setProperty("--person-bg", ROLE_BG[roleKey]);
+        li.style.setProperty("--person-border", ROLE_BORDER[roleKey]);
       } else {
         li.style.setProperty("--person-bg", "#232122");
         li.style.setProperty("--person-border", "#2a292a");
@@ -1388,9 +1389,11 @@ function buildPrintPage(){
         badges = `<span class="badge" style="background:${ROLE_COLORS['']}">${ROLE_ABBR['']}</span>`;
       }
       const hasSG = roles.includes("Superintendente");
-      const hasAJG = roles.includes("Ajudante");
       const boldStyle = hasSG ? "font-weight:700;" : "";
-      const rowBg = hasSG ? "#fff8d6" : hasAJG ? "#fffbe8" : "";
+      const printPriority = ["Superintendente","Ajudante","Ancião","Servo Ministerial"];
+      const topPrintRole = printPriority.find(r => roles.includes(r));
+      const printKey = topPrintRole || (p.pioneer ? "pioneer" : null);
+      const rowBg = printKey ? (PRINT_ROW_BG[printKey] || "") : "";
       const rowStyle = rowBg ? `background:${rowBg};` : "";
       return `<li style="${rowStyle}"><span class="pname" style="${boldStyle}">${p.name}</span><span class="badges">${badges}</span></li>`;
     }).join("");
