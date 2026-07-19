@@ -209,6 +209,105 @@
   }
   .person.hidden{display:none;}
 
+  .dist-badge{
+    font-family:Menlo,monospace;
+    font-size:.58rem;
+    font-weight:700;
+    padding:2px 6px;
+    border-radius:3px;
+    white-space:nowrap;
+    letter-spacing:.02em;
+  }
+  .dist-badge.ok   { background:#1a3a1a; color:#6fcf6f; border:1px solid #2d6b2d; }
+  .dist-badge.mid  { background:#3a2d00; color:#e0b264; border:1px solid #7a5a00; }
+  .dist-badge.far  { background:#3a1010; color:#e07070; border:1px solid #7a2020; }
+  .dist-badge.none { background:#2a2828; color:#6b6560; border:1px solid #3a3636; cursor:pointer; }
+
+  .addr-btn{
+    font-family:Menlo,monospace;
+    font-size:.58rem;
+    padding:2px 6px;
+    border-radius:3px;
+    border:1px solid #3a3636;
+    background:transparent;
+    color:#6b6560;
+    cursor:pointer;
+    flex-shrink:0;
+  }
+  .addr-btn:hover{ color:var(--ink); border-color:#666; }
+
+  /* Modal de endereço */
+  #addrModal{
+    display:none;
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,.7);
+    z-index:1000;
+    align-items:center;
+    justify-content:center;
+  }
+  #addrModal.show{ display:flex; }
+  #addrModal .modal-box{
+    background:#1c1b1c;
+    border:1px solid #3a3636;
+    border-radius:8px;
+    padding:20px 22px;
+    width:90%;
+    max-width:420px;
+    display:flex;
+    flex-direction:column;
+    gap:12px;
+  }
+  #addrModal .modal-title{
+    font-size:.95rem;
+    color:var(--ink);
+    font-weight:600;
+  }
+  #addrModal .modal-sub{
+    font-family:Menlo,monospace;
+    font-size:.68rem;
+    color:var(--ink-dim);
+    margin-top:-6px;
+  }
+  #addrModal input{
+    background:#141314;
+    border:1px solid #3a3636;
+    color:var(--ink);
+    padding:9px 11px;
+    border-radius:4px;
+    font-family:Menlo,monospace;
+    font-size:.78rem;
+    width:100%;
+  }
+  #addrModal .modal-status{
+    font-family:Menlo,monospace;
+    font-size:.68rem;
+    color:var(--ink-dim);
+    min-height:16px;
+  }
+  #addrModal .modal-btns{
+    display:flex;
+    gap:8px;
+    justify-content:flex-end;
+  }
+  #addrModal button{
+    font-family:Menlo,monospace;
+    font-size:.72rem;
+    padding:8px 14px;
+    border-radius:4px;
+    cursor:pointer;
+    border:1px solid #3a3636;
+    background:transparent;
+    color:var(--ink);
+    text-transform:uppercase;
+    letter-spacing:.04em;
+  }
+  #addrModal button.primary{
+    background:#1a5c7a;
+    border-color:#1a5c7a;
+    color:#fff;
+  }
+
   .board-legend{
     max-width:1400px;
     display:flex;
@@ -488,7 +587,196 @@
   <div class="a4-wrap"><div class="print-page" id="printPage"><div id="printInner"></div></div></div>
 </div>
 
+<div id="addrModal">
+  <div class="modal-box">
+    <div class="modal-title" id="addrModalName"></div>
+    <div class="modal-sub">Digite o endereço completo para calcular a distância até a saída do grupo.</div>
+    <input id="addrModalInput" type="text" placeholder="Ex: Rua das Flores, 123 - Padroeira - Osasco/SP">
+    <div class="modal-status" id="addrModalStatus"></div>
+    <div class="modal-btns">
+      <button id="addrModalCancel">Cancelar</button>
+      <button class="primary" id="addrModalSave">Salvar e geocodificar</button>
+    </div>
+  </div>
+</div>
+
 <script>
+// ── Endereços das saídas por grupo ──────────────────────────────────────
+const GROUP_EXIT_ADDR = {
+  alegria:  "Rua Elza Fagundes Moraes, 119, Jardim Roberto, Osasco, SP",
+  amor:     "Rua Campo Grande, 441, Padroeira, Osasco, SP",
+  bondade:  "Rua Francisco Leonel dos Santos, 304, Padroeira, Osasco, SP",
+  paciencia:"Rua Elza Fagundes Moraes, 119, Jardim Roberto, Osasco, SP",
+  paz:      "Avenida José Barbosa de Siqueira, 813, Padroeira, Osasco, SP",
+};
+
+// ── Endereços dos irmãos (pré-carregados do docx) ───────────────────────
+const INITIAL_ADDRS = {
+  "IVAN CARDOSO":          "Rua José Nabor, 4, Padroeira, Osasco, SP",
+  "ELIANA CARDOSO":        "Rua José Nabor, 4, Padroeira, Osasco, SP",
+  "BIANCA CARDOSO":        "Rua José Nabor, 4, Padroeira, Osasco, SP",
+  "EWERTON FRANÇA":        "Rua Odila Catan, 66, Jardim Roberto, Osasco, SP",
+  "LEONARDO FRANÇA":       "Rua Odila Catan, 66, Jardim Roberto, Osasco, SP",
+  "PATRICIA FRANÇA":       "Rua Odila Catan, 66, Jardim Roberto, Osasco, SP",
+  "STEFANY FRANÇA":        "Rua Odila Catan, 66, Jardim Roberto, Osasco, SP",
+  "ERONILDES MELO":        "Rua Mirassol, 19, São Pedro, Osasco, SP",
+  "Luana Nascimento":      "Rua Carlos Proença, 46, Jardim Cirino, Osasco, SP",
+  "Marcio Nascimento":     "Rua Carlos Proença, 46, Jardim Cirino, Osasco, SP",
+  "JULIANA OLIVEIRA":      "Rua Ferrucio Brinatti, 445, Sul Americana, Carapicuiba, SP",
+  "LUCAS ALEX OLIVEIRA":   "Rua Ferrucio Brinatti, 445, Sul Americana, Carapicuiba, SP",
+  "CRYSTIAN SILVA":        "Rua Apostolo João Batista, 31, Jardim Conceição, Osasco, SP",
+  "ZULMIRA SILVA":         "Rua Gildo Cadastro, 254, Jardim Roberto, Osasco, SP",
+  // Amor
+  "Peterson Cunha":        "Viela Itaperuna, 27, Padroeira, Osasco, SP",
+  "Andrea Cunha":          "Viela Itaperuna, 27, Padroeira, Osasco, SP",
+  "Juan Cunha":            "Viela Itaperuna, 27, Padroeira, Osasco, SP",
+  "Peterson Filho Cunha":  "Viela Itaperuna, 27, Padroeira, Osasco, SP",
+  "Kauan Cunha":           "Viela Itaperuna, 27, Padroeira, Osasco, SP",
+  "Juliana de Andrade carvalho": "Rua Ademar Teixeira Machado, 15B, Jardim Veloso, Osasco, SP",
+  "Isac Moreira dos santos":     "Rua Ademar Teixeira Machado, 15B, Jardim Veloso, Osasco, SP",
+  "ANA PAULA FERRO":       "Rua Campo Grande, 2, Padroeira, Osasco, SP",
+  "PEDRO ROBERTO SILVA":   "Rua Campo Grande, 2, Padroeira, Osasco, SP",
+  "SOLANGE SILVA":         "Rua Campo Grande, 2, Padroeira, Osasco, SP",
+  "ROMARIO PEREIRA":       "Rua Além do Horizonte, 45, Veloso, Osasco, SP",
+  "Juliana Samuel":        "Rua Dona Maria Emília Neves Ferro Silva, 109, Padroeira, Osasco, SP",
+  "Maria Eduarda Samuel":  "Rua Dona Maria Emília Neves Ferro Silva, 109, Padroeira, Osasco, SP",
+  "DANIEL SANTOS":         "Rua Campo Grande, 441, Padroeira, Osasco, SP",
+  "SILVIA R. SANTOS":      "Rua Campo Grande, 441, Padroeira, Osasco, SP",
+  "MAXIONILLA SANTOS":     "Rua Campo Grande, 256, Padroeira, Osasco, SP",
+  "RAFAEL SANTOS":         "Rua Julio Nunes de Rego, 510, Jardim Roberto, Osasco, SP",
+  "CLEONICE SILVA SOUZA":  "Rua Campo Grande, 365, Padroeira, Osasco, SP",
+  // Bondade
+  "RAIMUNDO  LIMA":        "Rua Gildo Cadastro, 38, Jardim Roberto, Osasco, SP",
+  "APARECIDA MARIA  PALOPOLI": "Rua Madame Tereza Grillo Michel, 127, Padroeira, Osasco, SP",
+  "PEDRO SARAIVA":         "Rua Madame Tereza Grillo Michel, 127, Padroeira, Osasco, SP",
+  "GRAZIELA SANTOS":       "Rua Itaperuna, 46, Padroeira, Osasco, SP",
+  "RAQUEL SANTOS":         "Rua Itaperuna, 46, Padroeira, Osasco, SP",
+  "JOSIVÂNIA SANTOS":      "Avenida João Paulo II, 110, São Pedro, Osasco, SP",
+  "SABRINA SANTOS":        "Avenida João Paulo II, 110, São Pedro, Osasco, SP",
+  "LUCIANO SILVA":         "Rua Silvestre Lourenço da Silva, 47, Vila Yolanda, Osasco, SP",
+  "VANESSA SOUZA":         "Rua Cirio de Sena, 279, Jardim Roberto, Osasco, SP",
+  "ISABEL TOLENTINO":      "Rua Francisco Leonel dos Santos, 304, Padroeira, Osasco, SP",
+  "JUAREZ TOLENTINO":      "Rua Francisco Leonel dos Santos, 304, Padroeira, Osasco, SP",
+  // Paciência
+  "REVSON BERIGO":         "Rua Brasília, 138, Jardim Veloso, Osasco, SP",
+  "DANIEL BERIGO":         "Rua Brasília, 138, Jardim Veloso, Osasco, SP",
+  "ROSANA BERIGO":         "Rua Brasília, 138, Jardim Veloso, Osasco, SP",
+  "ADILSON CAMPOS":        "Alameda Perseverança, 29, Padroeira, Osasco, SP",
+  "CLAUDENIR DIAS":        "Rua Itaperuna, 230, Padroeira, Osasco, SP",
+  "ALICE SANTOS":          "Rua Itaperuna, 230, Padroeira, Osasco, SP",
+  "MARIA STELLA DIAS":     "Rua Elza Fagundes Moraes, 761, Jardim Roberto, Osasco, SP",
+  "VALDECIR DIAS":         "Rua Elza Fagundes Moraes, 761, Jardim Roberto, Osasco, SP",
+  "ELZA SANTOS":           "Rua Elza Fagundes Moraes, 119, Jardim Roberto, Osasco, SP",
+  "RITA DE CASSIA  GOMES": "Rua Natalino Manoel Custódio, 6, Jardim Roberto, Osasco, SP",
+  "AMANDA SANTOS":         "Avenida João Paulo II, 180, São Pedro, Osasco, SP",
+  "CÉLIA SANTOS":          "Avenida João Paulo II, 180, São Pedro, Osasco, SP",
+  "ADRIANA SILVA":         "Avenida José Barbosa de Siqueira, 1805, Padroeira, Osasco, SP",
+  "MARIANA SILVA":         "Avenida José Barbosa de Siqueira, 1805, Padroeira, Osasco, SP",
+  "FABIO TOLENTINO":       "Rua Jaú, 51, Jardim Santo Antônio, Osasco, SP",
+  "RENATA TOLENTINO":      "Rua Santa Marcela, 98, Jardim Roberto, Osasco, SP",
+  // Paz
+  "MARIA BARBOSA":         "Avenida José Barbosa de Siqueira, 767, Padroeira, Osasco, SP",
+  "TANIA RODRIGUES":       "Rua José Barbosa de Siqueira, 767, Padroeira, Osasco, SP",
+  "JOSÉ SILVA":            "Avenida José Barbosa de Siqueira, 757, Padroeira, Osasco, SP",
+  "SIMONE SOUZA":          "Avenida José Barbosa de Siqueira, 757, Padroeira, Osasco, SP",
+  "MARCIO BRITO":          "Rua Aquiles Belline, 420, Osasco, SP",
+  "Bruno Mello":           "Rua Aquiles Belline, 594, Osasco, SP",
+  "MAYSA GONÇALVES":       "Rua Campo Grande, 770, Padroeira, Osasco, SP",
+  "VICTOR SANTOS":         "Rua Campo Grande, 770, Padroeira, Osasco, SP",
+  "EDVALDO NOBERTO":       "Avenida José Barbosa de Siqueira, 813, Padroeira, Osasco, SP",
+  "EVERILDA NOBERTO":      "Avenida José Barbosa de Siqueira, 813, Padroeira, Osasco, SP",
+  "ROBSON NOBERTO":        "Viela Wagner de Souza Ferreira, 11, Osasco, SP",
+  "LINA SAITO":            "Rua Campo Grande, 286, Padroeira, Osasco, SP",
+  "MAURO SAITO":           "Rua Campo Grande, 286, Padroeira, Osasco, SP",
+  "CLAUDIOMAR SANTOS":     "Rua Itaperuna, 230, Padroeira, Osasco, SP",
+  "MARIA DE LOURDES SANTOS":"Rua Itaperuna, 230, Padroeira, Osasco, SP",
+  "TANIA SANTOS":          "Rua Madame Tereza Grillo Michel, 141, Padroeira, Osasco, SP",
+  // Não designado
+  "VALDINEI SANTOS":       "Rua Itaperuna, 46, Padroeira, Osasco, SP",
+};
+
+// ── Cache de coordenadas (lat/lng) ──────────────────────────────────────
+// Chave: endereço normalizado → {lat, lng} ou null
+let geoCache = {};
+const GEO_STORAGE = "jardim-ivete-geocache-v1";
+
+function loadGeoCache(){
+  try{ const r = localStorage.getItem(GEO_STORAGE); if(r) geoCache = JSON.parse(r); }catch(e){}
+}
+function saveGeoCache(){
+  try{ localStorage.setItem(GEO_STORAGE, JSON.stringify(geoCache)); }catch(e){}
+}
+
+// ── Geocodificação via Nominatim (OpenStreetMap) ─────────────────────────
+async function geocode(addr){
+  if(!addr) return null;
+  const key = addr.trim().toLowerCase();
+  if(key in geoCache) return geoCache[key];
+  try{
+    const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(addr)}`;
+    const r = await fetch(url, {headers:{"Accept-Language":"pt-BR"}});
+    const data = await r.json();
+    const result = data[0] ? {lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon)} : null;
+    geoCache[key] = result;
+    saveGeoCache();
+    return result;
+  }catch(e){ return null; }
+}
+
+// ── Distância em linha reta (Haversine) ─────────────────────────────────
+function haversine(a, b){
+  const R = 6371000;
+  const dLat = (b.lat - a.lat) * Math.PI/180;
+  const dLng = (b.lng - a.lng) * Math.PI/180;
+  const s = Math.sin(dLat/2)**2 + Math.cos(a.lat*Math.PI/180)*Math.cos(b.lat*Math.PI/180)*Math.sin(dLng/2)**2;
+  return Math.round(R * 2 * Math.asin(Math.sqrt(s)));
+}
+
+function fmtDist(m){
+  return m >= 1000 ? (m/1000).toFixed(1).replace(".",",") + " km" : m + " m";
+}
+
+// ── Coords das saídas (cache próprio) ───────────────────────────────────
+let exitCoords = {}; // groupKey → {lat,lng}|null
+
+async function loadExitCoords(){
+  for(const [key, addr] of Object.entries(GROUP_EXIT_ADDR)){
+    exitCoords[key] = await geocode(addr);
+  }
+}
+
+// ── Endereços dos irmãos no state ────────────────────────────────────────
+// state[group][idx].addr  = string de endereço
+// state[group][idx].coords= {lat,lng} | null | undefined
+
+function getPersonAddr(p){
+  if(p.addr !== undefined) return p.addr;
+  // tentar pelo nome (normaliza para maiúsculas)
+  const name = p.name ? p.name.trim() : "";
+  return INITIAL_ADDRS[name] || null;
+}
+
+async function ensurePersonCoords(p){
+  if(p.coords !== undefined) return p.coords;
+  const addr = getPersonAddr(p);
+  if(!addr){ p.coords = null; return null; }
+  p.coords = await geocode(addr);
+  return p.coords;
+}
+
+// Geocodifica tudo em background ao carregar
+async function geocodeAll(){
+  await loadExitCoords();
+  for(const g of GROUPS){
+    for(const p of (state[g.key]||[])){
+      await ensurePersonCoords(p);
+      // pequena pausa para não sobrecarregar Nominatim (1 req/s recomendado)
+      await new Promise(r=>setTimeout(r,220));
+    }
+  }
+  render();
+}
+
 const GROUPS = [
   {key:"alegria", name:"Alegria", color:"var(--alegria)"},
   {key:"amor", name:"Amor", color:"var(--amor)"},
@@ -1113,11 +1401,15 @@ function personId(groupKey, idx){ return groupKey + "__" + idx; }
 // Normaliza pessoa: garante que tem roles[] e pioneer
 function normPerson(p){
   if(!p.roles){
-    // migrar de role (string) para roles (array)
     p.roles = p.role ? [p.role] : [];
     delete p.role;
   }
   if(p.pioneer === undefined) p.pioneer = false;
+  if(p.addr === undefined){
+    const initAddr = INITIAL_ADDRS[p.name ? p.name.trim() : ""] || null;
+    p.addr = initAddr;
+  }
+  // coords: undefined = não geocodificado ainda, null = sem endereço/falhou
   return p;
 }
 
@@ -1143,7 +1435,15 @@ async function loadState(){
 
 async function saveState(){
   try{
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    // Salvar sem coords (coords ficam no geoCache separado)
+    const toSave = {};
+    GROUPS.forEach(g=>{
+      toSave[g.key] = (state[g.key]||[]).map(p=>{
+        const {coords, ...rest} = p;
+        return rest;
+      });
+    });
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
   }catch(e){
     console.error("Falha ao salvar", e);
   }
@@ -1205,7 +1505,42 @@ function render(){
       const nameSpan = document.createElement("span");
       nameSpan.className = "pname";
       nameSpan.textContent = p.name;
-      li.appendChild(nameSpan);
+
+      // Badge de distância
+      const distSpan = document.createElement("span");
+      distSpan.dataset.distBadge = "1";
+      const exit = exitCoords[g.key];
+      const coords = p.coords;
+      if(exit && coords){
+        const m = haversine(exit, coords);
+        distSpan.className = "dist-badge " + (m <= 300 ? "ok" : m <= 700 ? "mid" : "far");
+        distSpan.textContent = "📍 " + fmtDist(m);
+        distSpan.title = "Distância em linha reta até a saída do grupo";
+      } else if(p.addr || getPersonAddr(p)){
+        distSpan.className = "dist-badge none";
+        distSpan.textContent = "📍 calculando…";
+      } else {
+        distSpan.className = "dist-badge none";
+        distSpan.textContent = "📍 sem endereço";
+        distSpan.title = "Clique para adicionar endereço";
+        distSpan.style.cursor = "pointer";
+        distSpan.addEventListener("click", (e)=>{ e.stopPropagation(); openAddrModal(g.key, idx); });
+      }
+
+      const nameRow = document.createElement("div");
+      nameRow.style.cssText = "display:flex;align-items:center;gap:6px;flex-wrap:wrap;width:100%;";
+      nameRow.appendChild(nameSpan);
+      nameRow.appendChild(distSpan);
+
+      // Botão de editar endereço
+      const addrBtn = document.createElement("button");
+      addrBtn.className = "addr-btn";
+      addrBtn.textContent = "✎ end.";
+      addrBtn.title = getPersonAddr(p) || "Clique para cadastrar endereço";
+      addrBtn.addEventListener("click", (e)=>{ e.stopPropagation(); openAddrModal(g.key, idx); });
+      nameRow.appendChild(addrBtn);
+
+      li.appendChild(nameRow);
 
       // Linha de botões toggle — um para cada cargo + PR
       const row = document.createElement("div");
@@ -1439,9 +1774,63 @@ document.getElementById("closePrintBtn").addEventListener("click", ()=>{
   document.getElementById("printOverlay").classList.remove("show");
 });
 
+// ── Modal de endereço ────────────────────────────────────────────────────
+let _modalCtx = null; // {groupKey, idx}
+
+function openAddrModal(groupKey, idx){
+  const p = state[groupKey][idx];
+  _modalCtx = {groupKey, idx};
+  document.getElementById("addrModalName").textContent = p.name;
+  document.getElementById("addrModalInput").value = getPersonAddr(p) || "";
+  document.getElementById("addrModalStatus").textContent = "";
+  document.getElementById("addrModal").classList.add("show");
+  document.getElementById("addrModalInput").focus();
+}
+
+document.getElementById("addrModalCancel").addEventListener("click", ()=>{
+  document.getElementById("addrModal").classList.remove("show");
+});
+
+document.getElementById("addrModalSave").addEventListener("click", async ()=>{
+  if(!_modalCtx) return;
+  const {groupKey, idx} = _modalCtx;
+  const addr = document.getElementById("addrModalInput").value.trim();
+  const status = document.getElementById("addrModalStatus");
+  if(!addr){ status.textContent = "⚠ Digite um endereço."; return; }
+  status.textContent = "🔍 Geocodificando…";
+  document.getElementById("addrModalSave").disabled = true;
+  const coords = await geocode(addr);
+  document.getElementById("addrModalSave").disabled = false;
+  if(!coords){
+    status.textContent = "❌ Endereço não encontrado. Tente ser mais específico.";
+    return;
+  }
+  state[groupKey][idx].addr = addr;
+  state[groupKey][idx].coords = coords;
+  const exit = exitCoords[groupKey];
+  if(exit){
+    const m = haversine(exit, coords);
+    status.textContent = `✅ ${fmtDist(m)} da saída do grupo!`;
+  } else {
+    status.textContent = "✅ Salvo!";
+  }
+  saveState();
+  setTimeout(()=>{
+    document.getElementById("addrModal").classList.remove("show");
+    render();
+  }, 1200);
+});
+
+document.getElementById("addrModal").addEventListener("click", (e)=>{
+  if(e.target === document.getElementById("addrModal"))
+    document.getElementById("addrModal").classList.remove("show");
+});
+
 (async ()=>{
+  loadGeoCache();
   state = await loadState();
   render();
+  geocodeAll(); // geocodifica em background
 })();
 </script>
 </body>
