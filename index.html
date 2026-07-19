@@ -80,6 +80,24 @@
     font-size:.72rem;
     color:var(--ink-dim);
   }
+  .group-head .head-right{
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .exit-btn{
+    font-family:Menlo,monospace;
+    font-size:.62rem;
+    background:transparent;
+    border:1px solid var(--line);
+    color:var(--ink-dim);
+    border-radius:4px;
+    padding:2px 6px;
+    cursor:pointer;
+    letter-spacing:.02em;
+  }
+  .exit-btn:hover{ color:var(--ink); border-color:var(--ink-dim); }
+  .exit-btn.set{ color:var(--gcolor); border-color:var(--gcolor); }
   .roles{
     display:flex;
     flex-direction:column;
@@ -590,7 +608,7 @@
 <div id="addrModal">
   <div class="modal-box">
     <div class="modal-title" id="addrModalName"></div>
-    <div class="modal-sub">Digite o endereço completo para calcular a distância até a saída do grupo.</div>
+    <div class="modal-sub" id="addrModalSub">Digite o endereço completo para calcular a distância até a saída do grupo.</div>
     <input id="addrModalInput" type="text" placeholder="Ex: Rua das Flores, 123 - Padroeira - Osasco/SP">
     <div class="modal-status" id="addrModalStatus"></div>
     <div class="modal-btns">
@@ -609,6 +627,24 @@ const GROUP_EXIT_ADDR = {
   paciencia:"Rua Elza Fagundes Moraes, 119, Jardim Roberto, Osasco, SP",
   paz:      "Avenida José Barbosa de Siqueira, 813, Padroeira, Osasco, SP",
 };
+
+// ── Override de endereços de saída, editável pela interface ──────────────
+// Guardado à parte para não mexer nos valores padrão acima.
+const EXIT_ADDR_STORAGE = "jardim-ivete-exitaddr-v1";
+let exitAddrOverrides = {}; // groupKey → endereço digitado pelo usuário
+
+function loadExitAddrOverrides(){
+  try{
+    const r = localStorage.getItem(EXIT_ADDR_STORAGE);
+    if(r) exitAddrOverrides = JSON.parse(r);
+  }catch(e){}
+}
+function saveExitAddrOverrides(){
+  try{ localStorage.setItem(EXIT_ADDR_STORAGE, JSON.stringify(exitAddrOverrides)); }catch(e){}
+}
+function getExitAddr(groupKey){
+  return exitAddrOverrides[groupKey] || GROUP_EXIT_ADDR[groupKey] || null;
+}
 
 // ── Endereços dos irmãos (pré-carregados do docx) ───────────────────────
 const INITIAL_ADDRS = {
@@ -743,8 +779,9 @@ function fmtDist(m){
 let exitCoords = {}; // groupKey → {lat,lng}|null
 
 async function loadExitCoords(){
-  for(const [key, addr] of Object.entries(GROUP_EXIT_ADDR)){
-    exitCoords[key] = await geocode(addr);
+  for(const g of GROUPS){
+    const addr = getExitAddr(g.key);
+    exitCoords[g.key] = addr ? await geocode(addr) : null;
   }
 }
 
@@ -1477,7 +1514,22 @@ function render(){
     const people = state[g.key] || [];
     const head = document.createElement("div");
     head.className = "group-head";
-    head.innerHTML = `<span class="name">${g.name}</span><span class="count">${people.length}</span>`;
+    head.innerHTML = `<span class="name">${g.name}</span>`;
+    const headRight = document.createElement("span");
+    headRight.className = "head-right";
+    const exitAddr = getExitAddr(g.key);
+    const exitBtn = document.createElement("button");
+    exitBtn.type = "button";
+    exitBtn.className = "exit-btn" + (exitAddr ? " set" : "");
+    exitBtn.textContent = "🚪 saída";
+    exitBtn.title = exitAddr ? exitAddr : "Clique para definir o endereço da saída deste grupo";
+    exitBtn.addEventListener("click", (e)=>{ e.stopPropagation(); openExitAddrModal(g.key); });
+    headRight.appendChild(exitBtn);
+    const countSpan = document.createElement("span");
+    countSpan.className = "count";
+    countSpan.textContent = people.length;
+    headRight.appendChild(countSpan);
+    head.appendChild(headRight);
     col.appendChild(head);
 
     const list = document.createElement("ul");
@@ -1776,13 +1828,25 @@ document.getElementById("closePrintBtn").addEventListener("click", ()=>{
 });
 
 // ── Modal de endereço ────────────────────────────────────────────────────
-let _modalCtx = null; // {groupKey, idx}
+let _modalCtx = null; // {mode:"person", groupKey, idx} | {mode:"exit", groupKey}
 
 function openAddrModal(groupKey, idx){
   const p = state[groupKey][idx];
-  _modalCtx = {groupKey, idx};
+  _modalCtx = {mode:"person", groupKey, idx};
   document.getElementById("addrModalName").textContent = p.name;
+  document.getElementById("addrModalSub").textContent = "Digite o endereço completo para calcular a distância até a saída do grupo.";
   document.getElementById("addrModalInput").value = getPersonAddr(p) || "";
+  document.getElementById("addrModalStatus").textContent = "";
+  document.getElementById("addrModal").classList.add("show");
+  document.getElementById("addrModalInput").focus();
+}
+
+function openExitAddrModal(groupKey){
+  const g = GROUPS.find(x=>x.key===groupKey);
+  _modalCtx = {mode:"exit", groupKey};
+  document.getElementById("addrModalName").textContent = "Saída — " + (g ? g.name : groupKey);
+  document.getElementById("addrModalSub").textContent = "Digite o endereço da saída deste grupo. A distância de todos os irmãos será recalculada.";
+  document.getElementById("addrModalInput").value = getExitAddr(groupKey) || "";
   document.getElementById("addrModalStatus").textContent = "";
   document.getElementById("addrModal").classList.add("show");
   document.getElementById("addrModalInput").focus();
@@ -1794,7 +1858,6 @@ document.getElementById("addrModalCancel").addEventListener("click", ()=>{
 
 document.getElementById("addrModalSave").addEventListener("click", async ()=>{
   if(!_modalCtx) return;
-  const {groupKey, idx} = _modalCtx;
   const addr = document.getElementById("addrModalInput").value.trim();
   const status = document.getElementById("addrModalStatus");
   if(!addr){ status.textContent = "⚠ Digite um endereço."; return; }
@@ -1806,16 +1869,27 @@ document.getElementById("addrModalSave").addEventListener("click", async ()=>{
     status.textContent = "❌ Endereço não encontrado. Tente ser mais específico.";
     return;
   }
-  state[groupKey][idx].addr = addr;
-  state[groupKey][idx].coords = coords;
-  const exit = exitCoords[groupKey];
-  if(exit){
-    const m = haversine(exit, coords);
-    status.textContent = `✅ ${fmtDist(m)} da saída do grupo!`;
+
+  if(_modalCtx.mode === "exit"){
+    const {groupKey} = _modalCtx;
+    exitAddrOverrides[groupKey] = addr;
+    saveExitAddrOverrides();
+    exitCoords[groupKey] = coords;
+    status.textContent = "✅ Saída atualizada! Recalculando distâncias…";
   } else {
-    status.textContent = "✅ Salvo!";
+    const {groupKey, idx} = _modalCtx;
+    state[groupKey][idx].addr = addr;
+    state[groupKey][idx].coords = coords;
+    const exit = exitCoords[groupKey];
+    if(exit){
+      const m = haversine(exit, coords);
+      status.textContent = `✅ ${fmtDist(m)} da saída do grupo!`;
+    } else {
+      status.textContent = "✅ Salvo!";
+    }
+    saveState();
   }
-  saveState();
+
   setTimeout(()=>{
     document.getElementById("addrModal").classList.remove("show");
     render();
@@ -1829,6 +1903,7 @@ document.getElementById("addrModal").addEventListener("click", (e)=>{
 
 (async ()=>{
   loadGeoCache();
+  loadExitAddrOverrides();
   state = await loadState();
   render();
   geocodeAll(); // geocodifica em background
