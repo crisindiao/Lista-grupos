@@ -254,6 +254,47 @@
   }
   .addr-btn:hover{ color:var(--ink); border-color:#666; }
 
+  .name-btn{
+    font-family:Menlo,monospace;
+    font-size:.58rem;
+    padding:2px 6px;
+    border-radius:3px;
+    border:1px solid #3a3636;
+    background:transparent;
+    color:#6b6560;
+    cursor:pointer;
+    flex-shrink:0;
+  }
+  .name-btn:hover{ color:var(--ink); border-color:#666; }
+
+  .del-btn{
+    font-family:Menlo,monospace;
+    font-size:.58rem;
+    padding:2px 6px;
+    border-radius:3px;
+    border:1px solid #3a3636;
+    background:transparent;
+    color:#6b6560;
+    cursor:pointer;
+    flex-shrink:0;
+  }
+  .del-btn:hover{ color:#e07070; border-color:#7a2020; }
+
+  .add-person-btn{
+    font-family:Menlo,monospace;
+    font-size:.68rem;
+    padding:6px 10px;
+    border-radius:4px;
+    border:1px dashed var(--line);
+    background:transparent;
+    color:var(--ink-dim);
+    cursor:pointer;
+    margin-top:8px;
+    width:100%;
+    letter-spacing:.03em;
+  }
+  .add-person-btn:hover{ color:var(--ink); border-color:var(--ink-dim); }
+
   /* Modal de endereço */
   #addrModal{
     display:none;
@@ -648,9 +689,9 @@ function getExitAddr(groupKey){
 
 // ── Endereços dos irmãos (pré-carregados do docx) ───────────────────────
 const INITIAL_ADDRS = {
-  "IVAN CARDOSO":          "Rua José Nabor, 4, Padroeira, Osasco, SP",
-  "ELIANA CARDOSO":        "Rua José Nabor, 4, Padroeira, Osasco, SP",
-  "BIANCA CARDOSO":        "Rua José Nabor, 4, Padroeira, Osasco, SP",
+  "IVAN CARDOSO":          "Rua José Nabor, 4, Parque Das Bandeiras, Osasco, SP, 06162-120",
+  "ELIANA CARDOSO":        "Rua José Nabor, 4, Parque Das Bandeiras, Osasco, SP, 06162-120",
+  "BIANCA CARDOSO":        "Rua José Nabor, 4, Parque Das Bandeiras, Osasco, SP, 06162-120",
   "EWERTON FRANÇA":        "Rua Odila Catan, 66, Jardim Roberto, Osasco, SP",
   "LEONARDO FRANÇA":       "Rua Odila Catan, 66, Jardim Roberto, Osasco, SP",
   "PATRICIA FRANÇA":       "Rua Odila Catan, 66, Jardim Roberto, Osasco, SP",
@@ -1593,6 +1634,37 @@ function render(){
       addrBtn.addEventListener("click", (e)=>{ e.stopPropagation(); openAddrModal(g.key, idx); });
       nameRow.appendChild(addrBtn);
 
+      // Botão de editar nome
+      const nameBtn = document.createElement("button");
+      nameBtn.className = "name-btn";
+      nameBtn.textContent = "✎ nome";
+      nameBtn.title = "Editar nome";
+      nameBtn.addEventListener("click", (e)=>{
+        e.stopPropagation();
+        const novo = prompt("Editar nome:", state[g.key][idx].name);
+        if(novo === null) return;
+        const trimmed = novo.trim();
+        if(!trimmed) return;
+        state[g.key][idx].name = trimmed;
+        saveState();
+        render();
+      });
+      nameRow.appendChild(nameBtn);
+
+      // Botão de excluir
+      const delBtn = document.createElement("button");
+      delBtn.className = "del-btn";
+      delBtn.textContent = "🗑";
+      delBtn.title = "Excluir pessoa";
+      delBtn.addEventListener("click", (e)=>{
+        e.stopPropagation();
+        if(!confirm(`Excluir "${state[g.key][idx].name}"?`)) return;
+        state[g.key].splice(idx, 1);
+        saveState();
+        render();
+      });
+      nameRow.appendChild(delBtn);
+
       li.appendChild(nameRow);
 
       // Linha de botões toggle — um para cada cargo + PR
@@ -1718,6 +1790,24 @@ function render(){
     });
 
     col.appendChild(list);
+
+    // Botão de adicionar pessoa
+    const addBtn = document.createElement("button");
+    addBtn.type = "button";
+    addBtn.className = "add-person-btn";
+    addBtn.textContent = "+ adicionar pessoa";
+    addBtn.addEventListener("click", ()=>{
+      const nome = prompt("Nome da pessoa:");
+      if(nome === null) return;
+      const trimmed = nome.trim();
+      if(!trimmed) return;
+      if(!state[g.key]) state[g.key] = [];
+      state[g.key].push({name: trimmed, roles: [], pioneer: false});
+      saveState();
+      render();
+    });
+    col.appendChild(addBtn);
+
     board.appendChild(col);
   });
   applySearch();
