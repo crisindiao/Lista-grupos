@@ -713,10 +713,13 @@ async function geocode(addr){
   const key = addr.trim().toLowerCase();
   if(key in geoCache) return geoCache[key];
   try{
-    const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(addr)}`;
-    const r = await fetch(url, {headers:{"Accept-Language":"pt-BR"}});
+    const API_KEY = "a5769984623a48f69c9ba7f9022a7858";
+    const url = `https://api.opencagedata.com/geocode/v1/json?q=${encodeURIComponent(addr)}&key=${API_KEY}&language=pt&countrycode=br&limit=1`;
+    const r = await fetch(url);
     const data = await r.json();
-    const result = data[0] ? {lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon)} : null;
+    const result = data.results && data.results[0]
+      ? {lat: data.results[0].geometry.lat, lng: data.results[0].geometry.lng}
+      : null;
     geoCache[key] = result;
     saveGeoCache();
     return result;
@@ -770,8 +773,6 @@ async function geocodeAll(){
   for(const g of GROUPS){
     for(const p of (state[g.key]||[])){
       await ensurePersonCoords(p);
-      // pequena pausa para não sobrecarregar Nominatim (1 req/s recomendado)
-      await new Promise(r=>setTimeout(r,220));
     }
   }
   render();
