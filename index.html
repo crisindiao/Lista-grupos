@@ -1366,6 +1366,7 @@ function buildPrintPage(){
 
   let groupsHtml = "";
   GROUPS.forEach(g=>{
+    if(g.key === "nd") return; // não incluir "Não designado" na impressão
     const hex = GROUP_HEX[g.key] || "#555";
     const people = (state[g.key] || []).slice().sort((a,b)=>{
       const rank = r => r==="Superintendente"?0:r==="Ajudante"?1:r==="Ancião"?2:r==="Servo Ministerial"?3:4;
