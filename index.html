@@ -1836,16 +1836,6 @@ function buildPrintPage(){
   const today = new Date();
   const dateStr = today.toLocaleDateString('pt-BR', {day:'2-digit', month:'long', year:'numeric'});
 
-  const maxCount = Math.max(1, ...GROUPS.map(g => (state[g.key]||[]).length));
-  // ajuste estático de tamanho conforme o maior grupo, para caber melhor numa folha A4
-  let liSize = 8.6, h3Size = 10.5, liPad = 1.2, gap = "5mm 6mm";
-  if(maxCount > 22){ liSize = 7.6; h3Size = 9.6; liPad = 0.9; gap = "4mm 5mm"; }
-  if(maxCount > 27){ liSize = 6.9; h3Size = 8.8; liPad = 0.7; gap = "3mm 4mm"; }
-  page.style.setProperty("--li-size", liSize + "pt");
-  page.style.setProperty("--h3-size", h3Size + "pt");
-  page.style.setProperty("--li-pad", liPad + "mm");
-  page.style.setProperty("--groups-gap", gap);
-
   let groupsHtml = "";
   GROUPS.forEach(g=>{
     if(g.key === "nd") return; // não incluir "Não designado" na impressão
@@ -1900,6 +1890,54 @@ function buildPrintPage(){
     <div class="print-groups">${groupsHtml}</div>
     <div class="print-footer">jardimivete1@gmail.com</div>
   `;
+  fitPrintPageToOnePage();
+}
+
+// ── Ajuste automático para garantir que tudo caiba em UMA folha A4 ────────
+// Em vez de tamanhos fixos por faixa, mede a altura real renderizada e
+// encolhe fonte/espaçamento gradualmente até caber — evita cortar linhas
+// no meio quando um grupo tem muita gente.
+const MM_TO_PX = 96 / 25.4; // conversão exata de mm para px em CSS
+const PRINT_BASE = { li: 8.6, h3: 10.5, liPad: 1.2, gapV: 5, gapH: 6 };
+
+function applyPrintScale(page, scale){
+  page.style.setProperty("--li-size", (PRINT_BASE.li * scale).toFixed(2) + "pt");
+  page.style.setProperty("--h3-size", (PRINT_BASE.h3 * scale).toFixed(2) + "pt");
+  page.style.setProperty("--li-pad", (PRINT_BASE.liPad * scale).toFixed(2) + "mm");
+  page.style.setProperty("--groups-gap",
+    (PRINT_BASE.gapV * scale).toFixed(2) + "mm " + (PRINT_BASE.gapH * scale).toFixed(2) + "mm");
+}
+
+function fitPrintPageToOnePage(){
+  const page = document.getElementById("printInner");
+  // padding do .print-page é 12mm (topo) + 8mm (base) — sobra 277mm de altura útil.
+  // Reserva mais 3mm de folga de segurança contra arredondamento.
+  const availableHeightPx = (297 - 12 - 8 - 3) * MM_TO_PX;
+
+  let scale = 1;
+  applyPrintScale(page, scale);
+  let guard = 0;
+
+  if(page.scrollHeight > availableHeightPx){
+    // conteúdo não cabe: encolhe até caber
+    while(page.scrollHeight > availableHeightPx && scale > 0.55 && guard < 30){
+      scale -= 0.02;
+      applyPrintScale(page, scale);
+      guard++;
+    }
+  } else {
+    // sobrou espaço: aumenta pra aproveitar melhor a folha A4
+    while(page.scrollHeight < availableHeightPx * 0.96 && scale < 1.7 && guard < 40){
+      scale += 0.03;
+      applyPrintScale(page, scale);
+      guard++;
+    }
+    // se passou do limite ao crescer, volta um passo
+    if(page.scrollHeight > availableHeightPx){
+      scale -= 0.03;
+      applyPrintScale(page, scale);
+    }
+  }
 }
 
 function doPrintNow(){
@@ -1927,23 +1965,20 @@ async function downloadPdfNow(){
     const pageW = 210, pageH = 297;
     const imgData = canvas.toDataURL("image/jpeg", 0.95);
 
-    // Se o conteúdo for mais alto que uma folha A4, distribui em várias páginas
+    // Sempre gera 1 página só: se sobrar altura, encolhe a imagem
+    // proporcionalmente pra caber inteira dentro da folha A4.
     const imgW = pageW;
     const imgH = (canvas.height * imgW) / canvas.width;
 
-    if(imgH <= pageH){
-      pdf.addImage(imgData, "JPEG", 0, 0, imgW, imgH);
+    let drawW = imgW, drawH = imgH, xOff = 0, yOff = 0;
+    if(imgH > pageH){
+      drawH = pageH;
+      drawW = (canvas.width * drawH) / canvas.height;
+      xOff = (pageW - drawW) / 2;
     } else {
-      let remaining = imgH;
-      let position = 0;
-      const pxPerMm = canvas.width / imgW;
-      while(remaining > 0){
-        pdf.addImage(imgData, "JPEG", 0, -position, imgW, imgH);
-        remaining -= pageH;
-        position += pageH;
-        if(remaining > 0) pdf.addPage();
-      }
+      yOff = 0; // alinhado no topo
     }
+    pdf.addImage(imgData, "JPEG", xOff, yOff, drawW, drawH);
 
     const today = new Date();
     const dateStr = today.toLocaleDateString('pt-BR').replace(/\//g,"-");
