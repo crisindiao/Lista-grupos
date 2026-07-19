@@ -1,0 +1,2090 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Jardim Ivete — Grupos</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+  :root{
+    --bg:#141314;
+    --panel:#1c1b1c;
+    --panel-edge:#2a292a;
+    --ink:#f2ede6;
+    --ink-dim:#9a9491;
+    --line:#332f2e;
+    --alegria:#d9a441;
+    --amor:#c1553f;
+    --bondade:#4f7d5c;
+    --paciencia:#4a6fa5;
+    --paz:#8a6bab;
+    --nd:#5a5654;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--ink);
+    font-family:'Georgia', 'Iowan Old Style', serif;
+    padding:28px 16px 60px;
+  }
+  h1{
+    font-family:'Iowan Old Style','Georgia',serif;
+    font-weight:400;
+    font-size:1.6rem;
+    letter-spacing:.02em;
+    margin:0 0 2px;
+  }
+  .sub{
+    color:var(--ink-dim);
+    font-size:.85rem;
+    margin:0 0 22px;
+    font-family:Menlo, monospace;
+    letter-spacing:.03em;
+  }
+  .board{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(230px,1fr));
+    gap:14px;
+    max-width:1400px;
+  }
+  @media (max-width:640px){
+    .board{ grid-template-columns:1fr; }
+    body{ padding:16px 10px 50px; }
+    .search input{ max-width:100%; }
+  }
+  .group{
+    background:var(--panel);
+    border:1px solid var(--panel-edge);
+    border-top:3px solid var(--gcolor);
+    border-radius:6px;
+    padding:12px 12px 16px;
+    min-height:120px;
+    display:flex;
+    flex-direction:column;
+  }
+  .group-head{
+    display:flex;
+    justify-content:space-between;
+    align-items:baseline;
+    margin-bottom:10px;
+    padding-bottom:8px;
+    border-bottom:1px solid var(--line);
+  }
+  .group-head .name{
+    font-size:1.05rem;
+    color:var(--gcolor);
+    letter-spacing:.02em;
+  }
+  .group-head .count{
+    font-family:Menlo,monospace;
+    font-size:.72rem;
+    color:var(--ink-dim);
+  }
+  .group-head .head-right{
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .exit-btn{
+    font-family:Menlo,monospace;
+    font-size:.62rem;
+    background:transparent;
+    border:1px solid var(--line);
+    color:var(--ink-dim);
+    border-radius:4px;
+    padding:2px 6px;
+    cursor:pointer;
+    letter-spacing:.02em;
+  }
+  .exit-btn:hover{ color:var(--ink); border-color:var(--ink-dim); }
+  .exit-btn.set{ color:var(--gcolor); border-color:var(--gcolor); }
+  .roles{
+    display:flex;
+    flex-direction:column;
+    gap:2px;
+    margin-bottom:8px;
+  }
+  .role-slot{
+    font-family:Menlo,monospace;
+    font-size:.68rem;
+    color:var(--ink-dim);
+    text-transform:uppercase;
+    letter-spacing:.06em;
+    padding:2px 0;
+  }
+  .role-slot b{color:var(--ink);font-weight:normal;text-transform:none;font-family:Georgia,serif;font-size:.85rem;letter-spacing:0;}
+  .droplist{
+    list-style:none;
+    margin:0;
+    padding:0;
+    display:flex;
+    flex-direction:column;
+    gap:5px;
+    min-height:40px;
+    flex:1;
+  }
+  .droplist.dragover{
+    background:rgba(255,255,255,0.04);
+    outline:1px dashed var(--gcolor);
+    outline-offset:2px;
+    border-radius:4px;
+  }
+  .person{
+    background:var(--person-bg, #232122);
+    border:1px solid var(--person-border, var(--panel-edge));
+    border-radius:4px;
+    padding:8px 10px;
+    font-size:.86rem;
+    cursor:grab;
+    display:flex;
+    flex-direction:column;
+    align-items:flex-start;
+    gap:6px;
+    user-select:none;
+    transition:background .15s;
+    max-width:100%;
+  }
+  .person .pname{
+    word-break:break-word;
+    line-height:1.25;
+  }
+  .person .prow{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    flex-wrap:wrap;
+    width:100%;
+  }
+  .person select.role-select{
+    background:var(--role-color, #555);
+    border:none;
+    color:#fff;
+    font-family:Menlo,monospace;
+    font-weight:700;
+    font-size:.62rem;
+    letter-spacing:.03em;
+    padding:3px 5px;
+    border-radius:3px;
+    max-width:60px;
+    -webkit-appearance:none;
+    appearance:none;
+  }
+  .pio-toggle{
+    font-family:Menlo,monospace;
+    font-size:.62rem;
+    font-weight:700;
+    padding:3px 6px;
+    border-radius:3px;
+    cursor:pointer;
+    border:1px solid var(--panel-edge);
+    background:transparent;
+    color:var(--ink-dim);
+    flex-shrink:0;
+  }
+  .pio-toggle.on{
+    background:var(--pio-color,#2f7d5c);
+    color:#fff;
+    border-color:transparent;
+  }
+  .person:hover{filter:brightness(1.12);}
+  .person.dragging{opacity:.35;}
+  .person .role-badge{
+    font-family:Menlo,monospace;
+    font-size:.6rem;
+    color:var(--ink-dim);
+    letter-spacing:.04em;
+  }
+  .person select{
+    background:none;
+    border:none;
+    color:var(--ink-dim);
+    font-family:Menlo,monospace;
+    font-size:.6rem;
+    text-transform:uppercase;
+  }
+  .search{
+    max-width:1400px;
+    margin:0 0 18px;
+  }
+  .search input{
+    width:100%;
+    max-width:340px;
+    background:var(--panel);
+    border:1px solid var(--panel-edge);
+    color:var(--ink);
+    padding:9px 12px;
+    border-radius:4px;
+    font-family:Menlo,monospace;
+    font-size:.8rem;
+  }
+  .search input::placeholder{color:var(--ink-dim);}
+  .hint{
+    font-family:Menlo,monospace;
+    font-size:.68rem;
+    color:var(--ink-dim);
+    margin-top:26px;
+    max-width:1400px;
+  }
+  .person.hidden{display:none;}
+
+  .dist-badge{
+    font-family:Menlo,monospace;
+    font-size:.58rem;
+    font-weight:700;
+    padding:2px 6px;
+    border-radius:3px;
+    white-space:nowrap;
+    letter-spacing:.02em;
+  }
+  .dist-badge.ok   { background:#1a3a1a; color:#6fcf6f; border:1px solid #2d6b2d; }
+  .dist-badge.mid  { background:#3a2d00; color:#e0b264; border:1px solid #7a5a00; }
+  .dist-badge.far  { background:#3a1010; color:#e07070; border:1px solid #7a2020; }
+  .dist-badge.none { background:#2a2828; color:#6b6560; border:1px solid #3a3636; cursor:pointer; }
+
+  .addr-btn{
+    font-family:Menlo,monospace;
+    font-size:.58rem;
+    padding:2px 6px;
+    border-radius:3px;
+    border:1px solid #3a3636;
+    background:transparent;
+    color:#6b6560;
+    cursor:pointer;
+    flex-shrink:0;
+  }
+  .addr-btn:hover{ color:var(--ink); border-color:#666; }
+
+  .name-btn{
+    font-family:Menlo,monospace;
+    font-size:.58rem;
+    padding:2px 6px;
+    border-radius:3px;
+    border:1px solid #3a3636;
+    background:transparent;
+    color:#6b6560;
+    cursor:pointer;
+    flex-shrink:0;
+  }
+  .name-btn:hover{ color:var(--ink); border-color:#666; }
+
+  .del-btn{
+    font-family:Menlo,monospace;
+    font-size:.58rem;
+    padding:2px 6px;
+    border-radius:3px;
+    border:1px solid #3a3636;
+    background:transparent;
+    color:#6b6560;
+    cursor:pointer;
+    flex-shrink:0;
+  }
+  .del-btn:hover{ color:#e07070; border-color:#7a2020; }
+
+  .add-person-btn{
+    font-family:Menlo,monospace;
+    font-size:.68rem;
+    padding:6px 10px;
+    border-radius:4px;
+    border:1px dashed var(--line);
+    background:transparent;
+    color:var(--ink-dim);
+    cursor:pointer;
+    margin-top:8px;
+    width:100%;
+    letter-spacing:.03em;
+  }
+  .add-person-btn:hover{ color:var(--ink); border-color:var(--ink-dim); }
+
+  /* Modal de endereço */
+  #addrModal{
+    display:none;
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,.7);
+    z-index:1000;
+    align-items:center;
+    justify-content:center;
+  }
+  #addrModal.show{ display:flex; }
+  #addrModal .modal-box{
+    background:#1c1b1c;
+    border:1px solid #3a3636;
+    border-radius:8px;
+    padding:20px 22px;
+    width:90%;
+    max-width:420px;
+    display:flex;
+    flex-direction:column;
+    gap:12px;
+  }
+  #addrModal .modal-title{
+    font-size:.95rem;
+    color:var(--ink);
+    font-weight:600;
+  }
+  #addrModal .modal-sub{
+    font-family:Menlo,monospace;
+    font-size:.68rem;
+    color:var(--ink-dim);
+    margin-top:-6px;
+  }
+  #addrModal input{
+    background:#141314;
+    border:1px solid #3a3636;
+    color:var(--ink);
+    padding:9px 11px;
+    border-radius:4px;
+    font-family:Menlo,monospace;
+    font-size:.78rem;
+    width:100%;
+  }
+  #addrModal .modal-status{
+    font-family:Menlo,monospace;
+    font-size:.68rem;
+    color:var(--ink-dim);
+    min-height:16px;
+  }
+  #addrModal .modal-btns{
+    display:flex;
+    gap:8px;
+    justify-content:flex-end;
+  }
+  #addrModal button{
+    font-family:Menlo,monospace;
+    font-size:.72rem;
+    padding:8px 14px;
+    border-radius:4px;
+    cursor:pointer;
+    border:1px solid #3a3636;
+    background:transparent;
+    color:var(--ink);
+    text-transform:uppercase;
+    letter-spacing:.04em;
+  }
+  #addrModal button.primary{
+    background:#1a5c7a;
+    border-color:#1a5c7a;
+    color:#fff;
+  }
+
+  .board-legend{
+    max-width:1400px;
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px 16px;
+    margin:0 0 18px;
+    font-family:Menlo,monospace;
+    font-size:.7rem;
+    color:var(--ink-dim);
+    align-items:center;
+  }
+  .board-legend .chip{
+    font-size:.62rem;
+    font-weight:700;
+    color:#fff;
+    padding:2px 6px;
+    border-radius:3px;
+    margin-right:5px;
+  }
+  .person-badge{
+    font-size:.6rem;
+    font-weight:700;
+    color:#fff;
+    padding:1px 5px;
+    border-radius:3px;
+    letter-spacing:.02em;
+    white-space:nowrap;
+  }
+
+  .toolbar{
+    max-width:1400px;
+    display:flex;
+    gap:10px;
+    margin:0 0 18px;
+    flex-wrap:wrap;
+  }
+  .btn{
+    background:var(--panel);
+    border:1px solid var(--panel-edge);
+    color:var(--ink);
+    padding:9px 16px;
+    border-radius:4px;
+    font-family:Menlo,monospace;
+    font-size:.75rem;
+    letter-spacing:.04em;
+    text-transform:uppercase;
+    cursor:pointer;
+  }
+  .btn:hover{background:#242222;}
+  .btn.primary{border-color:#7a5a2a;color:#e0b264;}
+
+  /* ---- Print view: colorful A4 sheet ---- */
+  #printOverlay{
+    display:none;
+    position:fixed;
+    inset:0;
+    background:#726a5e;
+    z-index:999;
+    overflow-y:auto;
+    font-family:'Avenir Next','Helvetica Neue', Arial, sans-serif;
+  }
+  #printOverlay.show{display:flex; flex-direction:column;}
+  .print-topbar{
+    position:sticky; top:0;
+    background:#f4f4f4;
+    border-bottom:1px solid #ddd;
+    padding:10px 20px;
+    display:flex;
+    justify-content:flex-end;
+    align-items:center;
+    gap:10px;
+    z-index:2;
+  }
+  .print-topbar .print-note{
+    margin-right:auto;
+    font-family:Menlo,monospace;
+    font-size:.68rem;
+    color:#888;
+  }
+  .print-topbar button{
+    font-family:Menlo,monospace;
+    font-size:.72rem;
+    text-transform:uppercase;
+    letter-spacing:.04em;
+    padding:8px 14px;
+    border-radius:4px;
+    border:1px solid #ccc;
+    background:#fff;
+    cursor:pointer;
+  }
+  .print-topbar button.primary{
+    background:#1a5c7a;
+    color:#fff;
+    border-color:#1a5c7a;
+  }
+
+  /* A4 = 210mm x 297mm */
+  .a4-wrap{
+    flex:1;
+    display:flex;
+    justify-content:center;
+    padding:24px 12px 40px;
+  }
+  .print-page{
+    width:210mm;
+    min-height:297mm;
+    background:#fdfaf3;
+    box-shadow:0 8px 30px rgba(0,0,0,.4);
+    padding:12mm 13mm 8mm;
+    color:#26221d;
+    position:relative;
+    -webkit-print-color-adjust:exact;
+    print-color-adjust:exact;
+    color-adjust:exact;
+  }
+  .print-page *{
+    -webkit-print-color-adjust:exact;
+    print-color-adjust:exact;
+    color-adjust:exact;
+  }
+  .print-page::before{
+    content:"";
+    position:absolute;
+    top:0; left:0; right:0;
+    height:9mm;
+    background:linear-gradient(90deg,#1a5c7a,#2f7d5c,#a3701f,#8a3b3b,#3b6e8a);
+  }
+  #printInner{
+    width:100%;
+  }
+  .print-masthead{
+    text-align:center;
+    margin:6mm 0 5mm;
+  }
+  .print-masthead .eyebrow{
+    color:#a3701f;
+    font-size:9.5pt;
+    letter-spacing:.16em;
+    text-transform:uppercase;
+    font-weight:700;
+    margin-bottom:2mm;
+  }
+  .print-masthead h2{
+    margin:0;
+    font-size:23pt;
+    font-weight:800;
+    color:#1a5c7a;
+    letter-spacing:-0.01em;
+    font-family:Georgia,'Iowan Old Style',serif;
+  }
+  .print-masthead .cong{
+    margin-top:1.5mm;
+    color:#726a5e;
+    font-size:9.5pt;
+  }
+
+  .legend{
+    display:flex;
+    justify-content:center;
+    flex-wrap:wrap;
+    gap:2.5mm 5mm;
+    margin-bottom:5mm;
+    font-size:8pt;
+    color:#4a453e;
+    flex-shrink:0;
+  }
+  .legend span{display:flex;align-items:center;gap:1.6mm;}
+  .legend .chip{
+    font-size:6.6pt;
+    font-weight:700;
+    color:#fff;
+    padding:.5mm 1.5mm;
+    border-radius:1mm;
+    display:inline-block;
+    min-width:5mm;
+    text-align:center;
+  }
+
+  .print-groups{
+    display:grid;
+    grid-template-columns:1fr 1fr 1fr;
+    gap:var(--groups-gap, 5mm 6mm);
+  }
+  .print-group{
+    border:1px solid #e7e0d0;
+    border-radius:2.5mm;
+    overflow:hidden;
+    background:#fff;
+    display:flex;
+    flex-direction:column;
+  }
+  .print-group h3{
+    font-size:var(--h3-size, 10.5pt);
+    color:#fff;
+    margin:0;
+    padding:2.6mm 3.5mm;
+    letter-spacing:.02em;
+    font-weight:700;
+    flex-shrink:0;
+  }
+  .print-group ul{
+    list-style:none;
+    margin:0;
+    padding:2mm 3mm 3mm;
+    flex:1;
+  }
+  .print-group li{
+    padding:var(--li-pad, 1.2mm) 0;
+    border-bottom:.3mm solid #f0ebe0;
+    font-size:var(--li-size, 8.6pt);
+    display:flex;
+    align-items:baseline;
+    justify-content:space-between;
+    gap:2mm;
+  }
+  .print-group li:last-child{border-bottom:none;}
+  .print-group li .pname{color:#26221d;}
+  .print-group li .badges{
+    display:flex;
+    gap:1mm;
+    flex-shrink:0;
+  }
+  .badge{
+    font-size:6.4pt;
+    font-weight:700;
+    letter-spacing:.03em;
+    color:#fff;
+    padding:.6mm 1.6mm;
+    border-radius:1mm;
+    white-space:nowrap;
+  }
+
+  .print-footer{
+    margin-top:4mm;
+    padding-top:2.5mm;
+    border-top:.3mm solid #e7e0d0;
+    text-align:center;
+    color:#9a9088;
+    font-size:7.5pt;
+    flex-shrink:0;
+  }
+
+  @page{ size: A4; margin:0; }
+  @media print{
+    .print-topbar{display:none;}
+    #printOverlay{position:static; background:#fff;}
+    .a4-wrap{padding:0;}
+    .print-page{box-shadow:none;}
+    body > *:not(#printOverlay){display:none;}
+  }
+</style>
+</head>
+<body>
+
+<h1>Jardim Ivete — Grupos</h1>
+<p class="sub">arraste o nome para mudar de grupo · toque no cargo para definir superintendente / ajudante</p>
+
+<div class="toolbar">
+  <button class="btn primary" id="genPrintBtn">Gerar lista para o quadro</button>
+</div>
+
+<div class="search">
+  <input id="searchBox" type="text" placeholder="Buscar pessoa...">
+</div>
+
+<div class="board-legend" id="boardLegend"></div>
+
+<div class="board" id="board"></div>
+<p class="hint">Dados salvos automaticamente neste dispositivo.</p>
+
+<div id="printOverlay">
+  <div class="print-topbar">
+    <span class="print-note">No diálogo de impressão, selecione tamanho A4</span>
+    <button id="closePrintBtn">Fechar</button>
+    <button class="primary" id="downloadPdfBtn" onclick="downloadPdfNow()">Baixar PDF</button>
+    <button class="primary" onclick="doPrintNow()">Imprimir / Salvar PDF</button>
+  </div>
+  <div class="a4-wrap"><div class="print-page" id="printPage"><div id="printInner"></div></div></div>
+</div>
+
+<div id="addrModal">
+  <div class="modal-box">
+    <div class="modal-title" id="addrModalName"></div>
+    <div class="modal-sub" id="addrModalSub">Digite o endereço completo para calcular a distância até a saída do grupo.</div>
+    <input id="addrModalInput" type="text" placeholder="Ex: Rua das Flores, 123 - Padroeira - Osasco/SP">
+    <div class="modal-status" id="addrModalStatus"></div>
+    <div class="modal-btns">
+      <button id="addrModalCancel">Cancelar</button>
+      <button class="primary" id="addrModalSave">Salvar e geocodificar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Endereços das saídas por grupo ──────────────────────────────────────
+const GROUP_EXIT_ADDR = {
+  alegria:  "Rua Elza Fagundes Moraes, 119, Jardim Roberto, Osasco, SP",
+  amor:     "Rua Campo Grande, 441, Padroeira, Osasco, SP",
+  bondade:  "Rua Francisco Leonel dos Santos, 304, Padroeira, Osasco, SP",
+  paciencia:"Rua Elza Fagundes Moraes, 119, Jardim Roberto, Osasco, SP",
+  paz:      "Avenida José Barbosa de Siqueira, 813, Padroeira, Osasco, SP",
+};
+
+// ── Override de endereços de saída, editável pela interface ──────────────
+// Guardado à parte para não mexer nos valores padrão acima.
+const EXIT_ADDR_STORAGE = "jardim-ivete-exitaddr-v1";
+let exitAddrOverrides = {}; // groupKey → endereço digitado pelo usuário
+
+function loadExitAddrOverrides(){
+  try{
+    const r = localStorage.getItem(EXIT_ADDR_STORAGE);
+    if(r) exitAddrOverrides = JSON.parse(r);
+  }catch(e){}
+}
+function saveExitAddrOverrides(){
+  try{ localStorage.setItem(EXIT_ADDR_STORAGE, JSON.stringify(exitAddrOverrides)); }catch(e){}
+}
+function getExitAddr(groupKey){
+  return exitAddrOverrides[groupKey] || GROUP_EXIT_ADDR[groupKey] || null;
+}
+
+// ── Endereços dos irmãos (pré-carregados do docx) ───────────────────────
+const INITIAL_ADDRS = {
+  "IVAN CARDOSO":          "Rua José Nabor, 4, Parque Das Bandeiras, Osasco, SP, 06162-120",
+  "ELIANA CARDOSO":        "Rua José Nabor, 4, Parque Das Bandeiras, Osasco, SP, 06162-120",
+  "BIANCA CARDOSO":        "Rua José Nabor, 4, Parque Das Bandeiras, Osasco, SP, 06162-120",
+  "EWERTON FRANÇA":        "Rua Odila Catan, 66, Jardim Roberto, Osasco, SP",
+  "LEONARDO FRANÇA":       "Rua Odila Catan, 66, Jardim Roberto, Osasco, SP",
+  "PATRICIA FRANÇA":       "Rua Odila Catan, 66, Jardim Roberto, Osasco, SP",
+  "STEFANY FRANÇA":        "Rua Odila Catan, 66, Jardim Roberto, Osasco, SP",
+  "ERONILDES MELO":        "Rua Mirassol, 19, São Pedro, Osasco, SP",
+  "Luana Nascimento":      "Rua Carlos Proença, 46, Jardim Cirino, Osasco, SP",
+  "Marcio Nascimento":     "Rua Carlos Proença, 46, Jardim Cirino, Osasco, SP",
+  "JULIANA OLIVEIRA":      "Rua Ferrucio Brinatti, 445, Sul Americana, Carapicuiba, SP",
+  "LUCAS ALEX OLIVEIRA":   "Rua Ferrucio Brinatti, 445, Sul Americana, Carapicuiba, SP",
+  "CRYSTIAN SILVA":        "Rua Apostolo João Batista, 31, Jardim Conceição, Osasco, SP",
+  "ZULMIRA SILVA":         "Rua Gildo Cadastro, 254, Jardim Roberto, Osasco, SP",
+  // Amor
+  "Peterson Cunha":        "Viela Itaperuna, 27, Padroeira, Osasco, SP",
+  "Andrea Cunha":          "Viela Itaperuna, 27, Padroeira, Osasco, SP",
+  "Juan Cunha":            "Viela Itaperuna, 27, Padroeira, Osasco, SP",
+  "Peterson Filho Cunha":  "Viela Itaperuna, 27, Padroeira, Osasco, SP",
+  "Kauan Cunha":           "Viela Itaperuna, 27, Padroeira, Osasco, SP",
+  "Juliana de Andrade carvalho": "Rua Ademar Teixeira Machado, 15B, Jardim Veloso, Osasco, SP",
+  "Isac Moreira dos santos":     "Rua Ademar Teixeira Machado, 15B, Jardim Veloso, Osasco, SP",
+  "ANA PAULA FERRO":       "Rua Campo Grande, 2, Padroeira, Osasco, SP",
+  "PEDRO ROBERTO SILVA":   "Rua Campo Grande, 2, Padroeira, Osasco, SP",
+  "SOLANGE SILVA":         "Rua Campo Grande, 2, Padroeira, Osasco, SP",
+  "ROMARIO PEREIRA":       "Rua Além do Horizonte, 45, Veloso, Osasco, SP",
+  "Juliana Samuel":        "Rua Dona Maria Emília Neves Ferro Silva, 109, Padroeira, Osasco, SP",
+  "Maria Eduarda Samuel":  "Rua Dona Maria Emília Neves Ferro Silva, 109, Padroeira, Osasco, SP",
+  "DANIEL SANTOS":         "Rua Campo Grande, 441, Padroeira, Osasco, SP",
+  "SILVIA R. SANTOS":      "Rua Campo Grande, 441, Padroeira, Osasco, SP",
+  "MAXIONILLA SANTOS":     "Rua Campo Grande, 256, Padroeira, Osasco, SP",
+  "RAFAEL SANTOS":         "Rua Julio Nunes de Rego, 510, Jardim Roberto, Osasco, SP",
+  "CLEONICE SILVA SOUZA":  "Rua Campo Grande, 365, Padroeira, Osasco, SP",
+  // Bondade
+  "RAIMUNDO  LIMA":        "Rua Gildo Cadastro, 38, Jardim Roberto, Osasco, SP",
+  "APARECIDA MARIA  PALOPOLI": "Rua Madame Tereza Grillo Michel, 127, Padroeira, Osasco, SP",
+  "PEDRO SARAIVA":         "Rua Madame Tereza Grillo Michel, 127, Padroeira, Osasco, SP",
+  "GRAZIELA SANTOS":       "Rua Itaperuna, 46, Padroeira, Osasco, SP",
+  "RAQUEL SANTOS":         "Rua Itaperuna, 46, Padroeira, Osasco, SP",
+  "JOSIVÂNIA SANTOS":      "Avenida João Paulo II, 110, São Pedro, Osasco, SP",
+  "SABRINA SANTOS":        "Avenida João Paulo II, 110, São Pedro, Osasco, SP",
+  "LUCIANO SILVA":         "Rua Silvestre Lourenço da Silva, 47, Vila Yolanda, Osasco, SP",
+  "VANESSA SOUZA":         "Rua Cirio de Sena, 279, Jardim Roberto, Osasco, SP",
+  "ISABEL TOLENTINO":      "Rua Francisco Leonel dos Santos, 304, Padroeira, Osasco, SP",
+  "JUAREZ TOLENTINO":      "Rua Francisco Leonel dos Santos, 304, Padroeira, Osasco, SP",
+  // Paciência
+  "REVSON BERIGO":         "Rua Brasília, 138, Jardim Veloso, Osasco, SP",
+  "DANIEL BERIGO":         "Rua Brasília, 138, Jardim Veloso, Osasco, SP",
+  "ROSANA BERIGO":         "Rua Brasília, 138, Jardim Veloso, Osasco, SP",
+  "ADILSON CAMPOS":        "Alameda Perseverança, 29, Padroeira, Osasco, SP",
+  "CLAUDENIR DIAS":        "Rua Itaperuna, 230, Padroeira, Osasco, SP",
+  "ALICE SANTOS":          "Rua Itaperuna, 230, Padroeira, Osasco, SP",
+  "MARIA STELLA DIAS":     "Rua Elza Fagundes Moraes, 761, Jardim Roberto, Osasco, SP",
+  "VALDECIR DIAS":         "Rua Elza Fagundes Moraes, 761, Jardim Roberto, Osasco, SP",
+  "ELZA SANTOS":           "Rua Elza Fagundes Moraes, 119, Jardim Roberto, Osasco, SP",
+  "RITA DE CASSIA  GOMES": "Rua Natalino Manoel Custódio, 6, Jardim Roberto, Osasco, SP",
+  "AMANDA SANTOS":         "Avenida João Paulo II, 180, São Pedro, Osasco, SP",
+  "CÉLIA SANTOS":          "Avenida João Paulo II, 180, São Pedro, Osasco, SP",
+  "ADRIANA SILVA":         "Avenida José Barbosa de Siqueira, 1805, Padroeira, Osasco, SP",
+  "MARIANA SILVA":         "Avenida José Barbosa de Siqueira, 1805, Padroeira, Osasco, SP",
+  "FABIO TOLENTINO":       "Rua Jaú, 51, Jardim Santo Antônio, Osasco, SP",
+  "RENATA TOLENTINO":      "Rua Santa Marcela, 98, Jardim Roberto, Osasco, SP",
+  // Paz
+  "MARIA BARBOSA":         "Avenida José Barbosa de Siqueira, 767, Padroeira, Osasco, SP",
+  "TANIA RODRIGUES":       "Rua José Barbosa de Siqueira, 767, Padroeira, Osasco, SP",
+  "JOSÉ SILVA":            "Avenida José Barbosa de Siqueira, 757, Padroeira, Osasco, SP",
+  "SIMONE SOUZA":          "Avenida José Barbosa de Siqueira, 757, Padroeira, Osasco, SP",
+  "MARCIO BRITO":          "Rua Aquiles Belline, 420, Osasco, SP",
+  "Bruno Mello":           "Rua Aquiles Belline, 594, Osasco, SP",
+  "MAYSA GONÇALVES":       "Rua Campo Grande, 770, Padroeira, Osasco, SP",
+  "VICTOR SANTOS":         "Rua Campo Grande, 770, Padroeira, Osasco, SP",
+  "EDVALDO NOBERTO":       "Avenida José Barbosa de Siqueira, 813, Padroeira, Osasco, SP",
+  "EVERILDA NOBERTO":      "Avenida José Barbosa de Siqueira, 813, Padroeira, Osasco, SP",
+  "ROBSON NOBERTO":        "Viela Wagner de Souza Ferreira, 11, Osasco, SP",
+  "LINA SAITO":            "Rua Campo Grande, 286, Padroeira, Osasco, SP",
+  "MAURO SAITO":           "Rua Campo Grande, 286, Padroeira, Osasco, SP",
+  "CLAUDIOMAR SANTOS":     "Rua Itaperuna, 230, Padroeira, Osasco, SP",
+  "MARIA DE LOURDES SANTOS":"Rua Itaperuna, 230, Padroeira, Osasco, SP",
+  "TANIA SANTOS":          "Rua Madame Tereza Grillo Michel, 141, Padroeira, Osasco, SP",
+  // Não designado
+  "VALDINEI SANTOS":       "Rua Itaperuna, 46, Padroeira, Osasco, SP",
+};
+
+// ── Cache de coordenadas (lat/lng) ──────────────────────────────────────
+// Chave: endereço normalizado → {lat, lng} ou null
+let geoCache = {};
+const GEO_STORAGE = "jardim-ivete-geocache-v1";
+
+function loadGeoCache(){
+  try{ const r = localStorage.getItem(GEO_STORAGE); if(r) geoCache = JSON.parse(r); }catch(e){}
+}
+function saveGeoCache(){
+  try{ localStorage.setItem(GEO_STORAGE, JSON.stringify(geoCache)); }catch(e){}
+}
+
+// ── Geocodificação via Nominatim (OpenStreetMap) ─────────────────────────
+async function geocode(addr){
+  if(!addr) return null;
+  const key = addr.trim().toLowerCase();
+  if(key in geoCache) return geoCache[key];
+  try{
+    const API_KEY = "a5769984623a48f69c9ba7f9022a7858";
+    const url = `https://api.opencagedata.com/geocode/v1/json?q=${encodeURIComponent(addr)}&key=${API_KEY}&language=pt&countrycode=br&limit=1`;
+    const r = await fetch(url);
+    const data = await r.json();
+    const result = data.results && data.results[0]
+      ? {lat: data.results[0].geometry.lat, lng: data.results[0].geometry.lng}
+      : null;
+    geoCache[key] = result;
+    saveGeoCache();
+    return result;
+  }catch(e){ return null; }
+}
+
+// ── Distância em linha reta (Haversine) ─────────────────────────────────
+function haversine(a, b){
+  const R = 6371000;
+  const dLat = (b.lat - a.lat) * Math.PI/180;
+  const dLng = (b.lng - a.lng) * Math.PI/180;
+  const s = Math.sin(dLat/2)**2 + Math.cos(a.lat*Math.PI/180)*Math.cos(b.lat*Math.PI/180)*Math.sin(dLng/2)**2;
+  return Math.round(R * 2 * Math.asin(Math.sqrt(s)));
+}
+
+function fmtDist(m){
+  return m >= 1000 ? (m/1000).toFixed(1).replace(".",",") + " km" : m + " m";
+}
+
+// ── Coords das saídas (cache próprio) ───────────────────────────────────
+let exitCoords = {}; // groupKey → {lat,lng}|null
+
+async function loadExitCoords(){
+  for(const g of GROUPS){
+    const addr = getExitAddr(g.key);
+    exitCoords[g.key] = addr ? await geocode(addr) : null;
+  }
+}
+
+// ── Endereços dos irmãos no state ────────────────────────────────────────
+// state[group][idx].addr  = string de endereço
+// state[group][idx].coords= {lat,lng} | null | undefined
+
+function getPersonAddr(p){
+  if(p.addr !== undefined) return p.addr;
+  // tentar pelo nome (normaliza para maiúsculas)
+  const name = p.name ? p.name.trim() : "";
+  return INITIAL_ADDRS[name] || null;
+}
+
+async function ensurePersonCoords(p){
+  if(p.coords !== undefined) return p.coords;
+  const addr = getPersonAddr(p);
+  if(!addr){ p.coords = null; return null; }
+  p.coords = await geocode(addr);
+  return p.coords;
+}
+
+// Geocodifica tudo em background ao carregar
+async function geocodeAll(){
+  await loadExitCoords();
+  for(const g of GROUPS){
+    for(const p of (state[g.key]||[])){
+      await ensurePersonCoords(p);
+    }
+  }
+  render();
+}
+
+const GROUPS = [
+  {key:"alegria", name:"Alegria", color:"var(--alegria)"},
+  {key:"amor", name:"Amor", color:"var(--amor)"},
+  {key:"bondade", name:"Bondade", color:"var(--bondade)"},
+  {key:"paciencia", name:"Paciência", color:"var(--paciencia)"},
+  {key:"paz", name:"Paz", color:"var(--paz)"},
+  {key:"nd", name:"Não designado", color:"var(--nd)"},
+];
+
+const INITIAL = {
+  "alegria": [
+    {
+      "name": "Katia Bertiotti",
+      "role": "",
+      "pioneer": false
+    },
+    {
+      "name": "IVAN CARDOSO",
+      "role": "",
+      "pioneer": false
+    },
+    {
+      "name": "ELIANA CARDOSO",
+      "role": "",
+      "pioneer": false
+    },
+    {
+      "name": "BIANCA CARDOSO",
+      "role": "",
+      "pioneer": true
+    },
+    {
+      "name": "EWERTON FRANÇA",
+      "role": "",
+      "pioneer": false
+    },
+    {
+      "name": "LEONARDO FRANÇA",
+      "role": "",
+      "pioneer": false
+    },
+    {
+      "name": "PATRICIA FRANÇA",
+      "role": "",
+      "pioneer": false
+    },
+    {
+      "name": "STEFANY FRANÇA",
+      "role": "",
+      "pioneer": false
+    },
+    {
+      "name": "ERONILDES MELO",
+      "role": "",
+      "pioneer": false
+    },
+    {
+      "name": "NEURACI MELO",
+      "role": "",
+      "pioneer": false
+    },
+    {
+      "name": "Luana Nascimento",
+      "role": "",
+      "pioneer": false
+    },
+    {
+      "name": "Marcio Nascimento",
+      "role": "",
+      "pioneer": false
+    },
+    {
+      "name": "Emerson Oliveira",
+      "role": "",
+      "pioneer": false
+    },
+    {
+      "name": "Bryan Bertiotti",
+      "role": "",
+      "pioneer": false
+    },
+    {
+      "name": "JULIANA OLIVEIRA",
+      "role": "",
+      "pioneer": false
+    },
+    {
+      "name": "LUCAS ALEX OLIVEIRA",
+      "role": "Ancião",
+      "pioneer": false
+    },
+    {
+      "name": "Rhuane Oliveira",
+      "role": "",
+      "pioneer": false
+    },
+    {
+      "name": "Valdemar  Santos Filho",
+      "role": "",
+      "pioneer": false
+    },
+    {
+      "name": "FERNANDO SARAIVA",
+      "role": "",
+      "pioneer": false
+    },
+    {
+      "name": "CRYSTIAN SILVA",
+      "role": "Ancião",
+      "pioneer": true
+    },
+    {
+      "name": "VANESSA SILVA",
+      "role": "",
+      "pioneer": true
+    },
+    {
+      "name": "ZULMIRA SILVA",
+      "role": "",
+      "pioneer": false
+    }
+  ],
+  "amor": [
+    {
+      "name": "Giovanna Cunha",
+      "role": "",
+      "pioneer": false
+    },
+    {
+      "name": "Peterson Cunha",
+      "role": "",
+      "pioneer": false
+    },
+    {
+      "name": "Andrea Cunha",
+      "role": "",
+      "pioneer": false
+    },
+    {
+      "name": "Juan Cunha",
+      "role": "",
+      "pioneer": false
+    },
+    {
+      "name": "Peterson Filho Cunha",
+      "role": "",
+      "pioneer": false
+    },
+    {
+      "name": "Kauan Cunha",
+      "role": "",
+      "pioneer": false
+    },
+    {
+      "name": "Juliana de Andrade carvalho",
+      "role": "",
+      "pioneer": false
+    },
+    {
+      "name": "HERMELINA ESPINDOLA",
+      "role": "",
+      "pioneer": true
+    },
+    {
+      "name": "ANA PAULA FERRO",
+      "role": "",
+      "pioneer": false
+    },
+    {
+      "name": "Isac Moreira dos santos",
+      "role": "Servo Ministerial",
+      "pioneer": false
+    },
+    {
+      "name": "ROMARIO PEREIRA",
+      "role": "Ancião",
+      "pioneer": false
+    },
+    {
+      "name": "Juliana Samuel",
+      "role": "",
+      "pioneer": false
+    },
+    {
+      "name": "Maria Eduarda Samuel",
+      "role": "",
+      "pioneer": false
+    },
+    {
+      "name": "DANIEL SANTOS",
+      "role": "",
+      "pioneer": false
+    },
+    {
+      "name": "MAXIONILLA SANTOS",
+      "role": "",
+      "pioneer": false
+    },
+    {
+      "name": "RAFAEL SANTOS",
+      "role": "",
+      "pioneer": false
+    },
+    {
+      "name": "SILVIA R. SANTOS",
+      "role": "",
+      "pioneer": false
+    },
+    {
+      "name": "MARIA  SILVA",
+      "role": "",
+      "pioneer": false
+    },
+    {
+      "name": "PEDRO ROBERTO SILVA",
+      "role": "",
+      "pioneer": false
+    },
+    {
+      "name": "SOLANGE SILVA",
+      "role": "",
+      "pioneer": false
+    },
+    {
+      "name": "CLEONICE SILVA SOUZA",
+      "role": "",
+      "pioneer": false
+    }
+  ],
+  "bondade": [
+    {
+      "name": "RAIMUNDO  LIMA",
+      "role": "",
+      "pioneer": false
+    },
+    {
+      "name": "APARECIDA MARIA  PALOPOLI",
+      "role": "",
+      "pioneer": false
+    },
+    {
+      "name": "ROSA PALOPOLI",
+      "role": "",
+      "pioneer": false
+    },
+    {
+      "name": "GRAZIELA SANTOS",
+      "role": "",
+      "pioneer": false
+    },
+    {
+      "name": "IVETE SANTOS",
+      "role": "",
+      "pioneer": false
+    },
+    {
+      "name": "JOSIVÂNIA SANTOS",
+      "role": "",
+      "pioneer": false
+    },
+    {
+      "name": "RAQUEL SANTOS",
+      "role": "",
+      "pioneer": false
+    },
+    {
+      "name": "SABRINA SANTOS",
+      "role": "",
+      "pioneer": false
+    },
+    {
+      "name": "PEDRO SARAIVA",
+      "role": "",
+      "pioneer": false
+    },
+    {
+      "name": "LUCIANO SILVA",
+      "role": "Servo Ministerial",
+      "pioneer": false
+    },
+    {
+      "name": "TALIA SILVA",
+      "role": "",
+      "pioneer": false
+    },
+    {
+      "name": "GEAN GABRIEL SOUZA",
+      "role": "",
+      "pioneer": false
+    },
+    {
+      "name": "JOÃO GABRIEL SOUZA",
+      "role": "",
+      "pioneer": false
+    },
+    {
+      "name": "VANESSA SOUZA",
+      "role": "",
+      "pioneer": false
+    },
+    {
+      "name": "ISABEL TOLENTINO",
+      "role": "",
+      "pioneer": true
+    },
+    {
+      "name": "JUAREZ TOLENTINO",
+      "role": "Ancião",
+      "pioneer": true
+    }
+  ],
+  "paciencia": [
+    {
+      "name": "REVSON BERIGO",
+      "role": "Servo Ministerial",
+      "pioneer": false
+    },
+    {
+      "name": "DANIEL BERIGO",
+      "role": "",
+      "pioneer": false
+    },
+    {
+      "name": "ROSANA BERIGO",
+      "role": "",
+      "pioneer": false
+    },
+    {
+      "name": "ADILSON CAMPOS",
+      "role": "",
+      "pioneer": false
+    },
+    {
+      "name": "CLAUDENIR DIAS",
+      "role": "Servo Ministerial",
+      "pioneer": false
+    },
+    {
+      "name": "MARIA STELLA DIAS",
+      "role": "",
+      "pioneer": false
+    },
+    {
+      "name": "MIRIAN DIAS",
+      "role": "",
+      "pioneer": true
+    },
+    {
+      "name": "NEUSA DIAS",
+      "role": "",
+      "pioneer": false
+    },
+    {
+      "name": "VALDECIR DIAS",
+      "role": "Ancião",
+      "pioneer": true
+    },
+    {
+      "name": "Francisca  Fekete",
+      "role": "",
+      "pioneer": false
+    },
+    {
+      "name": "RITA DE CASSIA  GOMES",
+      "role": "",
+      "pioneer": false
+    },
+    {
+      "name": "ALICE SANTOS",
+      "role": "",
+      "pioneer": false
+    },
+    {
+      "name": "AMANDA SANTOS",
+      "role": "",
+      "pioneer": false
+    },
+    {
+      "name": "CÉLIA SANTOS",
+      "role": "",
+      "pioneer": false
+    },
+    {
+      "name": "ELZA SANTOS",
+      "role": "",
+      "pioneer": true
+    },
+    {
+      "name": "ADRIANA SILVA",
+      "role": "",
+      "pioneer": false
+    },
+    {
+      "name": "MARIANA SILVA",
+      "role": "",
+      "pioneer": false
+    },
+    {
+      "name": "DAVI TOLENTINO",
+      "role": "",
+      "pioneer": false
+    },
+    {
+      "name": "FABIO TOLENTINO",
+      "role": "Servo Ministerial",
+      "pioneer": false
+    },
+    {
+      "name": "GABRIEL TOLENTINO",
+      "role": "",
+      "pioneer": false
+    },
+    {
+      "name": "RENATA TOLENTINO",
+      "role": "",
+      "pioneer": false
+    }
+  ],
+  "paz": [
+    {
+      "name": "MARIA BARBOSA",
+      "role": "",
+      "pioneer": false
+    },
+    {
+      "name": "ELISABETE BRITO",
+      "role": "",
+      "pioneer": true
+    },
+    {
+      "name": "MARCIO BRITO",
+      "role": "Ancião",
+      "pioneer": true
+    },
+    {
+      "name": "ISABEL CONCEIÇÃO CAMAFORTO",
+      "role": "",
+      "pioneer": false
+    },
+    {
+      "name": "Luciano  da Silva",
+      "role": "",
+      "pioneer": false
+    },
+    {
+      "name": "MAYSA GONÇALVES",
+      "role": "",
+      "pioneer": false
+    },
+    {
+      "name": "Liliane Jesus",
+      "role": "",
+      "pioneer": false
+    },
+    {
+      "name": "Bruno Mello",
+      "role": "",
+      "pioneer": false
+    },
+    {
+      "name": "Danielle Mello",
+      "role": "",
+      "pioneer": false
+    },
+    {
+      "name": "Miguel Mello",
+      "role": "",
+      "pioneer": false
+    },
+    {
+      "name": "EDVALDO NOBERTO",
+      "role": "Servo Ministerial",
+      "pioneer": false
+    },
+    {
+      "name": "EVERILDA NOBERTO",
+      "role": "",
+      "pioneer": true
+    },
+    {
+      "name": "ROBSON NOBERTO",
+      "role": "Servo Ministerial",
+      "pioneer": false
+    },
+    {
+      "name": "Rafael",
+      "role": "",
+      "pioneer": false
+    },
+    {
+      "name": "TANIA RODRIGUES",
+      "role": "",
+      "pioneer": false
+    },
+    {
+      "name": "LINA SAITO",
+      "role": "",
+      "pioneer": false
+    },
+    {
+      "name": "MAURO SAITO",
+      "role": "",
+      "pioneer": false
+    },
+    {
+      "name": "CLAUDIOMAR SANTOS",
+      "role": "Servo Ministerial",
+      "pioneer": false
+    },
+    {
+      "name": "MARIA DE LOURDES SANTOS",
+      "role": "",
+      "pioneer": true
+    },
+    {
+      "name": "TANIA SANTOS",
+      "role": "",
+      "pioneer": false
+    },
+    {
+      "name": "VICTOR SANTOS",
+      "role": "Servo Ministerial",
+      "pioneer": false
+    },
+    {
+      "name": "JOSÉ SILVA",
+      "role": "",
+      "pioneer": false
+    },
+    {
+      "name": "PALOMA SILVA",
+      "role": "",
+      "pioneer": false
+    },
+    {
+      "name": "SIMONE SOUZA",
+      "role": "",
+      "pioneer": false
+    },
+    {
+      "name": "Vera",
+      "role": "",
+      "pioneer": false
+    }
+  ],
+  "nd": [
+    {
+      "name": "João Carvalho",
+      "role": "",
+      "pioneer": false
+    },
+    {
+      "name": "VALDINEI SANTOS",
+      "role": "",
+      "pioneer": false
+    }
+  ]
+};
+
+const ROLES = ["", "Pub. Batizado", "Pub. Não Batizado", "Ancião", "Servo Ministerial", "Superintendente", "Ajudante"];
+const ROLE_ABBR = {
+  "": "",
+  "Pub. Batizado": "PB",
+  "Pub. Não Batizado": "PNB",
+  "Ancião": "AC",
+  "Servo Ministerial": "SM",
+  "Superintendente": "SG",
+  "Ajudante": "AJG",
+};
+const ROLE_LABEL = {
+  "": "",
+  "Pub. Batizado": "Publicador Batizado",
+  "Pub. Não Batizado": "Publicador Não Batizado",
+  "Ancião": "Ancião",
+  "Servo Ministerial": "Servo Ministerial",
+  "Superintendente": "Superintendente de grupo",
+  "Ajudante": "Ajudante de grupo",
+};
+const ROLE_COLORS = {
+  "": "#6b6560",
+  "Pub. Batizado": "#5a5654",
+  "Pub. Não Batizado": "#5a5654",
+  "Ancião": "#8a3b3b",
+  "Servo Ministerial": "#2a6e9a",
+  "Superintendente": "#a3701f",
+  "Ajudante": "#a3701f",
+};
+// Cores de fundo do card por cargo (tela)
+const ROLE_BG = {
+  "Superintendente": "#3a2d00",
+  "Ajudante":        "#2e2500",
+  "Ancião":          "#2d1010",
+  "Servo Ministerial":"#0e2233",
+  "pioneer":         "#1e0f2e",
+};
+const ROLE_BORDER = {
+  "Superintendente": "#c8980a",
+  "Ajudante":        "#a07800",
+  "Ancião":          "#8a3b3b",
+  "Servo Ministerial":"#2a6e9a",
+  "pioneer":         "#7a3b8a",
+};
+
+// Cor de fundo da linha na impressão por cargo
+const PRINT_ROW_BG = {
+  "Superintendente": "#fff8d6",
+  "Ajudante":        "#fffbe8",
+  "Ancião":          "#fff0f0",
+  "Servo Ministerial":"#eef5ff",
+  "pioneer":         "#f5eeff",
+};
+
+const PIONEER_ABBR = "PR";
+const PIONEER_LABEL = "Pioneiro(a) Regular";
+const PIONEER_COLOR = "#7a3b8a";
+const STORAGE_KEY = "jardim-ivete-grupos-v4";
+
+let state = null; // { alegria:[{name,role}], ... }
+
+function personId(groupKey, idx){ return groupKey + "__" + idx; }
+
+// Normaliza pessoa: garante que tem roles[] e pioneer
+function normPerson(p){
+  if(!p.roles){
+    p.roles = p.role ? [p.role] : [];
+    delete p.role;
+  }
+  if(p.pioneer === undefined) p.pioneer = false;
+  if(p.addr === undefined){
+    const initAddr = INITIAL_ADDRS[p.name ? p.name.trim() : ""] || null;
+    p.addr = initAddr;
+  }
+  // coords: undefined = não geocodificado ainda, null = sem endereço/falhou
+  return p;
+}
+
+async function loadState(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(raw){
+      const s = JSON.parse(raw);
+      GROUPS.forEach(g=>{ (s[g.key]||[]).forEach(normPerson); });
+      return s;
+    }
+  }catch(e){}
+  const s = {};
+  GROUPS.forEach(g=>{
+    s[g.key] = (INITIAL[g.key]||[]).map(p=>normPerson({
+      name: p.name,
+      roles: p.role ? [p.role] : [],
+      pioneer: !!p.pioneer
+    }));
+  });
+  return s;
+}
+
+async function saveState(){
+  try{
+    // Salvar sem coords (coords ficam no geoCache separado)
+    const toSave = {};
+    GROUPS.forEach(g=>{
+      toSave[g.key] = (state[g.key]||[]).map(p=>{
+        const {coords, ...rest} = p;
+        return rest;
+      });
+    });
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
+  }catch(e){
+    console.error("Falha ao salvar", e);
+  }
+}
+
+function renderLegend(){
+  const el = document.getElementById("boardLegend");
+  const items = [
+    ["Pub. Batizado","Publicador Batizado"], ["Pub. Não Batizado","Publicador Não Batizado"],
+    ["Ancião","Ancião"], ["Servo Ministerial","Servo Ministerial"],
+    ["Superintendente","Superintendente de grupo"], ["Ajudante","Ajudante de grupo"]
+  ];
+  let html = items.map(([key,label])=>{
+    return `<span><span class="chip" style="background:${ROLE_COLORS[key]}">${ROLE_ABBR[key]}</span>${label}</span>`;
+  }).join("");
+  html += `<span><span class="chip" style="background:${PIONEER_COLOR}">${PIONEER_ABBR}</span>${PIONEER_LABEL}</span>`;
+  el.innerHTML = html;
+}
+
+function render(){
+  renderLegend();
+  const board = document.getElementById("board");
+  board.innerHTML = "";
+  GROUPS.forEach(g=>{
+    const col = document.createElement("div");
+    col.className = "group";
+    col.style.setProperty("--gcolor", g.color);
+    col.dataset.group = g.key;
+
+    const people = state[g.key] || [];
+    const head = document.createElement("div");
+    head.className = "group-head";
+    head.innerHTML = `<span class="name">${g.name}</span>`;
+    const headRight = document.createElement("span");
+    headRight.className = "head-right";
+    const exitAddr = getExitAddr(g.key);
+    const exitBtn = document.createElement("button");
+    exitBtn.type = "button";
+    exitBtn.className = "exit-btn" + (exitAddr ? " set" : "");
+    exitBtn.textContent = "🚪 saída";
+    exitBtn.title = exitAddr ? exitAddr : "Clique para definir o endereço da saída deste grupo";
+    exitBtn.addEventListener("click", (e)=>{ e.stopPropagation(); openExitAddrModal(g.key); });
+    headRight.appendChild(exitBtn);
+    const countSpan = document.createElement("span");
+    countSpan.className = "count";
+    countSpan.textContent = people.length;
+    headRight.appendChild(countSpan);
+    head.appendChild(headRight);
+    col.appendChild(head);
+
+    const list = document.createElement("ul");
+    list.className = "droplist";
+    list.dataset.group = g.key;
+
+    people.forEach((p, idx)=>{
+      const li = document.createElement("li");
+      li.className = "person";
+      li.draggable = true;
+      li.dataset.group = g.key;
+      li.dataset.idx = idx;
+
+      // Cor do card por prioridade: SG > AJG > AC > SM > PR > neutro
+      const priority = ["Superintendente","Ajudante","Ancião","Servo Ministerial"];
+      const topRole = priority.find(r => p.roles.includes(r));
+      const roleKey = topRole || (p.pioneer ? "pioneer" : null);
+      if(roleKey){
+        li.style.setProperty("--person-bg", ROLE_BG[roleKey]);
+        li.style.setProperty("--person-border", ROLE_BORDER[roleKey]);
+      } else {
+        li.style.setProperty("--person-bg", "#232122");
+        li.style.setProperty("--person-border", "#2a292a");
+      }
+
+      const nameSpan = document.createElement("span");
+      nameSpan.className = "pname";
+      nameSpan.textContent = p.name;
+
+      // Badge de distância
+      const distSpan = document.createElement("span");
+      distSpan.dataset.distBadge = "1";
+      const exit = exitCoords[g.key];
+      const coords = p.coords;
+      if(exit && coords){
+        const m = haversine(exit, coords);
+        distSpan.className = "dist-badge " + (m <= 300 ? "ok" : m <= 700 ? "mid" : "far");
+        distSpan.textContent = "📍 " + fmtDist(m);
+        distSpan.title = "Distância em linha reta até a saída do grupo";
+      } else if(p.addr || getPersonAddr(p)){
+        distSpan.className = "dist-badge none";
+        distSpan.textContent = "📍 calculando…";
+      } else {
+        distSpan.className = "dist-badge none";
+        distSpan.textContent = "📍 sem endereço";
+        distSpan.title = "Clique para adicionar endereço";
+        distSpan.style.cursor = "pointer";
+        distSpan.addEventListener("click", (e)=>{ e.stopPropagation(); openAddrModal(g.key, idx); });
+      }
+
+      const nameRow = document.createElement("div");
+      nameRow.style.cssText = "display:flex;align-items:center;gap:6px;flex-wrap:wrap;width:100%;";
+      nameRow.appendChild(nameSpan);
+      nameRow.appendChild(distSpan);
+
+      // Botão de editar endereço
+      const addrBtn = document.createElement("button");
+      addrBtn.className = "addr-btn";
+      addrBtn.textContent = "✎ end.";
+      addrBtn.title = getPersonAddr(p) || "Clique para cadastrar endereço";
+      addrBtn.addEventListener("click", (e)=>{ e.stopPropagation(); openAddrModal(g.key, idx); });
+      nameRow.appendChild(addrBtn);
+
+      // Botão de editar nome
+      const nameBtn = document.createElement("button");
+      nameBtn.className = "name-btn";
+      nameBtn.textContent = "✎ nome";
+      nameBtn.title = "Editar nome";
+      nameBtn.addEventListener("click", (e)=>{
+        e.stopPropagation();
+        const novo = prompt("Editar nome:", state[g.key][idx].name);
+        if(novo === null) return;
+        const trimmed = novo.trim();
+        if(!trimmed) return;
+        state[g.key][idx].name = trimmed;
+        saveState();
+        render();
+      });
+      nameRow.appendChild(nameBtn);
+
+      // Botão de excluir
+      const delBtn = document.createElement("button");
+      delBtn.className = "del-btn";
+      delBtn.textContent = "🗑";
+      delBtn.title = "Excluir pessoa";
+      delBtn.addEventListener("click", (e)=>{
+        e.stopPropagation();
+        if(!confirm(`Excluir "${state[g.key][idx].name}"?`)) return;
+        state[g.key].splice(idx, 1);
+        saveState();
+        render();
+      });
+      nameRow.appendChild(delBtn);
+
+      li.appendChild(nameRow);
+
+      // Linha de botões toggle — um para cada cargo + PR
+      const row = document.createElement("div");
+      row.className = "prow";
+      row.style.cssText = "flex-wrap:wrap; gap:4px;";
+
+      // Cargos toggleáveis
+      const toggleRoles = ["Pub. Batizado", "Pub. Não Batizado", "Ancião", "Servo Ministerial", "Superintendente", "Ajudante"];
+      toggleRoles.forEach(r=>{
+        const btn = document.createElement("button");
+        btn.type = "button";
+        const active = p.roles.includes(r);
+        btn.className = "pio-toggle" + (active ? " on" : "");
+        btn.textContent = ROLE_ABBR[r];
+        btn.title = ROLE_LABEL[r];
+        btn.style.setProperty("--pio-color", ROLE_COLORS[r]);
+        btn.style.cssText += active
+          ? `background:${ROLE_COLORS[r]};color:#fff;border-color:transparent;`
+          : "";
+        btn.addEventListener("click", ()=>{
+          const roles = state[g.key][idx].roles;
+          const pos = roles.indexOf(r);
+          if(pos >= 0) roles.splice(pos, 1);
+          else roles.push(r);
+          saveState();
+          render();
+        });
+        row.appendChild(btn);
+      });
+
+      // Botão PR
+      const pioBtn = document.createElement("button");
+      pioBtn.type = "button";
+      pioBtn.className = "pio-toggle" + (p.pioneer ? " on" : "");
+      pioBtn.style.setProperty("--pio-color", PIONEER_COLOR);
+      pioBtn.textContent = PIONEER_ABBR;
+      pioBtn.title = PIONEER_LABEL;
+      pioBtn.addEventListener("click", ()=>{
+        state[g.key][idx].pioneer = !state[g.key][idx].pioneer;
+        saveState();
+        render();
+      });
+      row.appendChild(pioBtn);
+
+      li.appendChild(row);
+
+      li.addEventListener("dragstart", (e)=>{
+        e.dataTransfer.setData("text/plain", JSON.stringify({from:g.key, idx}));
+        li.classList.add("dragging");
+      });
+      li.addEventListener("dragend", ()=> li.classList.remove("dragging"));
+
+      // Drag sobre outro card para reordenar dentro do grupo
+      li.addEventListener("dragover", (e)=>{
+        e.preventDefault();
+        e.stopPropagation();
+        const dragging = list.querySelector(".dragging");
+        if(!dragging || dragging === li) return;
+        const rect = li.getBoundingClientRect();
+        const mid = rect.top + rect.height / 2;
+        if(e.clientY < mid){
+          list.insertBefore(dragging, li);
+        } else {
+          list.insertBefore(dragging, li.nextSibling);
+        }
+      });
+      li.addEventListener("drop", (e)=>{
+        e.preventDefault();
+        e.stopPropagation();
+        list.classList.remove("dragover");
+        const data = JSON.parse(e.dataTransfer.getData("text/plain"));
+        if(data.from !== g.key) {
+          // vindo de outro grupo: inserir aqui
+          const person = state[data.from][data.idx];
+          if(!person) return;
+          state[data.from].splice(data.idx, 1);
+          // descobrir posição pelo DOM
+          const items = Array.from(list.querySelectorAll("li.person"));
+          const dropIdx = items.indexOf(li);
+          state[g.key].splice(dropIdx >= 0 ? dropIdx : state[g.key].length, 0, person);
+          saveState();
+          render();
+        } else {
+          // mesmo grupo: reordenar pelo DOM atual
+          const items = Array.from(list.querySelectorAll("li.person"));
+          const newOrder = items.map(el => state[g.key][parseInt(el.dataset.idx)]).filter(Boolean);
+          state[g.key] = newOrder;
+          saveState();
+          render();
+        }
+      });
+
+      list.appendChild(li);
+    });
+
+    list.addEventListener("dragover", (e)=>{
+      e.preventDefault();
+      list.classList.add("dragover");
+    });
+    list.addEventListener("dragleave", ()=> list.classList.remove("dragover"));
+    list.addEventListener("drop", (e)=>{
+      e.preventDefault();
+      list.classList.remove("dragover");
+      const data = JSON.parse(e.dataTransfer.getData("text/plain"));
+      if(data.from === g.key){
+        // mesmo grupo: reordenar pelo DOM atual
+        const items = Array.from(list.querySelectorAll("li.person"));
+        const newOrder = items.map(el => state[g.key][parseInt(el.dataset.idx)]).filter(Boolean);
+        if(newOrder.length === state[g.key].length){
+          state[g.key] = newOrder;
+          saveState();
+          render();
+        }
+        return;
+      }
+      const person = state[data.from][data.idx];
+      if(!person) return;
+      state[data.from].splice(data.idx, 1);
+      state[g.key].push(person);
+      saveState();
+      render();
+    });
+
+    col.appendChild(list);
+
+    // Botão de adicionar pessoa
+    const addBtn = document.createElement("button");
+    addBtn.type = "button";
+    addBtn.className = "add-person-btn";
+    addBtn.textContent = "+ adicionar pessoa";
+    addBtn.addEventListener("click", ()=>{
+      const nome = prompt("Nome da pessoa:");
+      if(nome === null) return;
+      const trimmed = nome.trim();
+      if(!trimmed) return;
+      if(!state[g.key]) state[g.key] = [];
+      state[g.key].push({name: trimmed, roles: [], pioneer: false});
+      saveState();
+      render();
+    });
+    col.appendChild(addBtn);
+
+    board.appendChild(col);
+  });
+  applySearch();
+}
+
+function applySearch(){
+  const q = document.getElementById("searchBox").value.trim().toLowerCase();
+  document.querySelectorAll(".person").forEach(el=>{
+    const name = el.querySelector("span").textContent.toLowerCase();
+    el.classList.toggle("hidden", q && !name.includes(q));
+  });
+}
+
+document.getElementById("searchBox").addEventListener("input", applySearch);
+
+const GROUP_HEX = {
+  alegria:"#a3701f", amor:"#8a3b3b", bondade:"#2f7d5c",
+  paciencia:"#3b6e8a", paz:"#6b4f8a", nd:"#726a5e"
+};
+
+function buildPrintPage(){
+  const page = document.getElementById("printInner");
+  const today = new Date();
+  const dateStr = today.toLocaleDateString('pt-BR', {day:'2-digit', month:'long', year:'numeric'});
+
+  let groupsHtml = "";
+  GROUPS.forEach(g=>{
+    if(g.key === "nd") return; // não incluir "Não designado" na impressão
+    const hex = GROUP_HEX[g.key] || "#555";
+    const people = (state[g.key] || []).slice().sort((a,b)=>{
+      const rank = r => r==="Superintendente"?0:r==="Ajudante"?1:r==="Ancião"?2:r==="Servo Ministerial"?3:4;
+      const minRankA = a.roles && a.roles.length ? Math.min(...a.roles.map(rank)) : 4;
+      const minRankB = b.roles && b.roles.length ? Math.min(...b.roles.map(rank)) : 4;
+      const rd = minRankA - minRankB;
+      return rd !== 0 ? rd : a.name.localeCompare(b.name,'pt-BR');
+    });
+    const items = people.map(p=>{
+      const roles = p.roles || (p.role ? [p.role] : []);
+      let badges = "";
+      roles.forEach(r=>{
+        if(r) badges += `<span class="badge" style="background:${ROLE_COLORS[r]}">${ROLE_ABBR[r]}</span>`;
+      });
+      if(p.pioneer){
+        badges += `<span class="badge" style="background:${PIONEER_COLOR}">${PIONEER_ABBR}</span>`;
+      }
+      if(!badges){
+        badges = `<span class="badge" style="background:${ROLE_COLORS['']}">${ROLE_ABBR['']}</span>`;
+      }
+      const hasSG = roles.includes("Superintendente");
+      const boldStyle = hasSG ? "font-weight:700;" : "";
+      const printPriority = ["Superintendente","Ajudante","Ancião","Servo Ministerial"];
+      const topPrintRole = printPriority.find(r => roles.includes(r));
+      const printKey = topPrintRole || (p.pioneer ? "pioneer" : null);
+      const rowBg = printKey ? (PRINT_ROW_BG[printKey] || "") : "";
+      const rowStyle = rowBg ? `background:${rowBg};` : "";
+      return `<li style="${rowStyle}"><span class="pname" style="${boldStyle}">${p.name}</span><span class="badges">${badges}</span></li>`;
+    }).join("");
+    groupsHtml += `<div class="print-group"><h3 style="background:${hex}">${g.name}</h3><ul>${items || '<li><span class="pname" style="color:#aaa;">— sem designados —</span></li>'}</ul></div>`;
+  });
+
+  const legendItems = [
+    ["Pub. Batizado","Publicador Batizado"], ["Pub. Não Batizado","Publicador Não Batizado"],
+    ["Ancião","Ancião"], ["Servo Ministerial","Servo Ministerial"],
+    ["Superintendente","Superintendente de grupo"], ["Ajudante","Ajudante de grupo"]
+  ];
+  const legendHtml = legendItems.map(([key,label])=>{
+    return `<span><span class="chip" style="background:${ROLE_COLORS[key]}">${ROLE_ABBR[key]}</span>${label}</span>`;
+  }).join("") + `<span><span class="chip" style="background:${PIONEER_COLOR}">${PIONEER_ABBR}</span>Pioneiro(a) Regular</span>`;
+
+  page.innerHTML = `
+    <div class="print-masthead">
+      <div class="eyebrow">Congregação Jardim Ivete</div>
+      <h2>Grupos de Serviço de Campo</h2>
+      <div class="cong">Atualizado em ${dateStr}</div>
+    </div>
+    <div class="legend">${legendHtml}</div>
+    <div class="print-groups">${groupsHtml}</div>
+    <div class="print-footer">jardimivete1@gmail.com</div>
+  `;
+  fitPrintPageToOnePage();
+}
+
+// ── Ajuste automático para garantir que tudo caiba em UMA folha A4 ────────
+// Em vez de tamanhos fixos por faixa, mede a altura real renderizada e
+// encolhe fonte/espaçamento gradualmente até caber — evita cortar linhas
+// no meio quando um grupo tem muita gente.
+const MM_TO_PX = 96 / 25.4; // conversão exata de mm para px em CSS
+const PRINT_BASE = { li: 8.6, h3: 10.5, liPad: 1.2, gapV: 5, gapH: 6 };
+
+function applyPrintScale(page, scale){
+  page.style.setProperty("--li-size", (PRINT_BASE.li * scale).toFixed(2) + "pt");
+  page.style.setProperty("--h3-size", (PRINT_BASE.h3 * scale).toFixed(2) + "pt");
+  page.style.setProperty("--li-pad", (PRINT_BASE.liPad * scale).toFixed(2) + "mm");
+  page.style.setProperty("--groups-gap",
+    (PRINT_BASE.gapV * scale).toFixed(2) + "mm " + (PRINT_BASE.gapH * scale).toFixed(2) + "mm");
+}
+
+function fitPrintPageToOnePage(){
+  const page = document.getElementById("printInner");
+  // padding do .print-page é 12mm (topo) + 8mm (base) — sobra 277mm de altura útil.
+  // Reserva mais 3mm de folga de segurança contra arredondamento.
+  const availableHeightPx = (297 - 12 - 8 - 3) * MM_TO_PX;
+
+  let scale = 1;
+  applyPrintScale(page, scale);
+  let guard = 0;
+
+  if(page.scrollHeight > availableHeightPx){
+    // conteúdo não cabe: encolhe até caber
+    while(page.scrollHeight > availableHeightPx && scale > 0.55 && guard < 30){
+      scale -= 0.02;
+      applyPrintScale(page, scale);
+      guard++;
+    }
+  } else {
+    // sobrou espaço: aumenta pra aproveitar melhor a folha A4
+    while(page.scrollHeight < availableHeightPx * 0.96 && scale < 1.7 && guard < 40){
+      scale += 0.03;
+      applyPrintScale(page, scale);
+      guard++;
+    }
+    // se passou do limite ao crescer, volta um passo
+    if(page.scrollHeight > availableHeightPx){
+      scale -= 0.03;
+      applyPrintScale(page, scale);
+    }
+  }
+}
+
+function doPrintNow(){
+  setTimeout(()=>{
+    try{ window.print(); }catch(e){ console.error("print failed", e); alert("Não foi possível abrir a impressão. Tente novamente."); }
+  }, 50);
+}
+
+async function downloadPdfNow(){
+  const btn = document.getElementById("downloadPdfBtn");
+  const originalText = btn.textContent;
+  try{
+    btn.disabled = true;
+    btn.textContent = "Gerando…";
+
+    const page = document.getElementById("printPage");
+    const canvas = await html2canvas(page, {
+      scale: 3,
+      useCORS: true,
+      backgroundColor: "#ffffff"
+    });
+
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+    const pageW = 210, pageH = 297;
+    const imgData = canvas.toDataURL("image/jpeg", 0.95);
+
+    // Sempre gera 1 página só: se sobrar altura, encolhe a imagem
+    // proporcionalmente pra caber inteira dentro da folha A4.
+    const imgW = pageW;
+    const imgH = (canvas.height * imgW) / canvas.width;
+
+    let drawW = imgW, drawH = imgH, xOff = 0, yOff = 0;
+    if(imgH > pageH){
+      drawH = pageH;
+      drawW = (canvas.width * drawH) / canvas.height;
+      xOff = (pageW - drawW) / 2;
+    } else {
+      yOff = 0; // alinhado no topo
+    }
+    pdf.addImage(imgData, "JPEG", xOff, yOff, drawW, drawH);
+
+    const today = new Date();
+    const dateStr = today.toLocaleDateString('pt-BR').replace(/\//g,"-");
+    pdf.save(`grupos-jardim-ivete-${dateStr}.pdf`);
+  }catch(e){
+    console.error("downloadPdfNow failed", e);
+    alert("Não foi possível gerar o PDF. Tente novamente ou use 'Imprimir / Salvar PDF'.");
+  }finally{
+    btn.disabled = false;
+    btn.textContent = originalText;
+  }
+}
+
+document.getElementById("genPrintBtn").addEventListener("click", ()=>{
+  document.getElementById("printOverlay").classList.add("show");
+  requestAnimationFrame(()=>{
+    requestAnimationFrame(()=>{
+      try{ buildPrintPage(); }catch(e){ console.error("buildPrintPage failed", e); }
+    });
+  });
+});
+document.getElementById("closePrintBtn").addEventListener("click", ()=>{
+  document.getElementById("printOverlay").classList.remove("show");
+});
+
+// ── Modal de endereço ────────────────────────────────────────────────────
+let _modalCtx = null; // {mode:"person", groupKey, idx} | {mode:"exit", groupKey}
+
+function openAddrModal(groupKey, idx){
+  const p = state[groupKey][idx];
+  _modalCtx = {mode:"person", groupKey, idx};
+  document.getElementById("addrModalName").textContent = p.name;
+  document.getElementById("addrModalSub").textContent = "Digite o endereço completo para calcular a distância até a saída do grupo.";
+  document.getElementById("addrModalInput").value = getPersonAddr(p) || "";
+  document.getElementById("addrModalStatus").textContent = "";
+  document.getElementById("addrModal").classList.add("show");
+  document.getElementById("addrModalInput").focus();
+}
+
+function openExitAddrModal(groupKey){
+  const g = GROUPS.find(x=>x.key===groupKey);
+  _modalCtx = {mode:"exit", groupKey};
+  document.getElementById("addrModalName").textContent = "Saída — " + (g ? g.name : groupKey);
+  document.getElementById("addrModalSub").textContent = "Digite o endereço da saída deste grupo. A distância de todos os irmãos será recalculada.";
+  document.getElementById("addrModalInput").value = getExitAddr(groupKey) || "";
+  document.getElementById("addrModalStatus").textContent = "";
+  document.getElementById("addrModal").classList.add("show");
+  document.getElementById("addrModalInput").focus();
+}
+
+document.getElementById("addrModalCancel").addEventListener("click", ()=>{
+  document.getElementById("addrModal").classList.remove("show");
+});
+
+document.getElementById("addrModalSave").addEventListener("click", async ()=>{
+  if(!_modalCtx) return;
+  const addr = document.getElementById("addrModalInput").value.trim();
+  const status = document.getElementById("addrModalStatus");
+  if(!addr){ status.textContent = "⚠ Digite um endereço."; return; }
+  status.textContent = "🔍 Geocodificando…";
+  document.getElementById("addrModalSave").disabled = true;
+  const coords = await geocode(addr);
+  document.getElementById("addrModalSave").disabled = false;
+  if(!coords){
+    status.textContent = "❌ Endereço não encontrado. Tente ser mais específico.";
+    return;
+  }
+
+  if(_modalCtx.mode === "exit"){
+    const {groupKey} = _modalCtx;
+    exitAddrOverrides[groupKey] = addr;
+    saveExitAddrOverrides();
+    exitCoords[groupKey] = coords;
+    status.textContent = "✅ Saída atualizada! Recalculando distâncias…";
+  } else {
+    const {groupKey, idx} = _modalCtx;
+    state[groupKey][idx].addr = addr;
+    state[groupKey][idx].coords = coords;
+    const exit = exitCoords[groupKey];
+    if(exit){
+      const m = haversine(exit, coords);
+      status.textContent = `✅ ${fmtDist(m)} da saída do grupo!`;
+    } else {
+      status.textContent = "✅ Salvo!";
+    }
+    saveState();
+  }
+
+  setTimeout(()=>{
+    document.getElementById("addrModal").classList.remove("show");
+    render();
+  }, 1200);
+});
+
+document.getElementById("addrModal").addEventListener("click", (e)=>{
+  if(e.target === document.getElementById("addrModal"))
+    document.getElementById("addrModal").classList.remove("show");
+});
+
+(async ()=>{
+  loadGeoCache();
+  loadExitAddrOverrides();
+  state = await loadState();
+  render();
+  geocodeAll(); // geocodifica em background
+})();
+</script>
+</body>
+</html>
