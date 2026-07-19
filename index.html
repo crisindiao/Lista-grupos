@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <title>Jardim Ivete — Grupos</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
   :root{
     --bg:#141314;
@@ -641,6 +643,7 @@
   <div class="print-topbar">
     <span class="print-note">No diálogo de impressão, selecione tamanho A4</span>
     <button id="closePrintBtn">Fechar</button>
+    <button class="primary" id="downloadPdfBtn" onclick="downloadPdfNow()">Baixar PDF</button>
     <button class="primary" onclick="doPrintNow()">Imprimir / Salvar PDF</button>
   </div>
   <div class="a4-wrap"><div class="print-page" id="printPage"><div id="printInner"></div></div></div>
@@ -1903,6 +1906,55 @@ function doPrintNow(){
   setTimeout(()=>{
     try{ window.print(); }catch(e){ console.error("print failed", e); alert("Não foi possível abrir a impressão. Tente novamente."); }
   }, 50);
+}
+
+async function downloadPdfNow(){
+  const btn = document.getElementById("downloadPdfBtn");
+  const originalText = btn.textContent;
+  try{
+    btn.disabled = true;
+    btn.textContent = "Gerando…";
+
+    const page = document.getElementById("printPage");
+    const canvas = await html2canvas(page, {
+      scale: 3,
+      useCORS: true,
+      backgroundColor: "#ffffff"
+    });
+
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+    const pageW = 210, pageH = 297;
+    const imgData = canvas.toDataURL("image/jpeg", 0.95);
+
+    // Se o conteúdo for mais alto que uma folha A4, distribui em várias páginas
+    const imgW = pageW;
+    const imgH = (canvas.height * imgW) / canvas.width;
+
+    if(imgH <= pageH){
+      pdf.addImage(imgData, "JPEG", 0, 0, imgW, imgH);
+    } else {
+      let remaining = imgH;
+      let position = 0;
+      const pxPerMm = canvas.width / imgW;
+      while(remaining > 0){
+        pdf.addImage(imgData, "JPEG", 0, -position, imgW, imgH);
+        remaining -= pageH;
+        position += pageH;
+        if(remaining > 0) pdf.addPage();
+      }
+    }
+
+    const today = new Date();
+    const dateStr = today.toLocaleDateString('pt-BR').replace(/\//g,"-");
+    pdf.save(`grupos-jardim-ivete-${dateStr}.pdf`);
+  }catch(e){
+    console.error("downloadPdfNow failed", e);
+    alert("Não foi possível gerar o PDF. Tente novamente ou use 'Imprimir / Salvar PDF'.");
+  }finally{
+    btn.disabled = false;
+    btn.textContent = originalText;
+  }
 }
 
 document.getElementById("genPrintBtn").addEventListener("click", ()=>{
