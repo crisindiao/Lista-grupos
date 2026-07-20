@@ -2,58 +2,102 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>Território Jardim Ivete - Gestão</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-  :root { --rose: #d6336c; --gold: #b76e79; --bg: #f4f1ee; }
+  :root {
+    --ink: #1c1b29;
+    --ink-soft: #524f66;
+    --brand: #7c3aed;
+    --brand-dark: #5b21b6;
+    --brand-soft: #ede9fe;
+    --coral: #f0653e;
+    --gold: #d99a3d;
+    --bg: #f6f4f9;
+    --surface: #ffffff;
+    --line: #e7e3ee;
+    --shadow: 0 2px 14px rgba(28,27,41,0.09);
+    --shadow-lg: 0 8px 28px rgba(28,27,41,0.16);
+    --radius: 14px;
+    --font-display: 'Manrope', system-ui, sans-serif;
+    --font-body: 'Inter', system-ui, sans-serif;
+  }
   * { box-sizing: border-box; }
-  html, body { margin: 0; padding: 0; height: 100%; width: 100%; overflow: hidden; font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; }
-  #map { position: absolute; top: 100px; left: 0; right: 0; bottom: 0; }
+  html, body { margin: 0; padding: 0; height: 100%; width: 100%; overflow: hidden; font-family: var(--font-body); color: var(--ink); -webkit-tap-highlight-color: transparent; }
+  #map { position: absolute; top: 100px; left: 0; right: 0; bottom: 0; background: var(--bg); }
+  button { font-family: inherit; }
 
   .topbar {
     position: absolute; top: 0; left: 0; right: 0; height: 56px;
-    z-index: 1000; background: linear-gradient(135deg, var(--rose) 0%, var(--gold) 100%);
+    z-index: 1000; background: var(--ink);
     display: flex; align-items: center; gap: 6px; padding: 0 8px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+    box-shadow: var(--shadow);
     overflow-x: auto;
   }
   .tab-btn {
-    background: rgba(255,255,255,0.18); color: white; border: none;
-    padding: 8px 14px; border-radius: 20px; font-weight: 700; font-size: 0.82rem;
+    background: rgba(255,255,255,0.09); color: rgba(255,255,255,0.72); border: none;
+    padding: 8px 14px; border-radius: 20px; font-family: var(--font-display); font-weight: 700; font-size: 0.82rem;
     cursor: pointer; white-space: nowrap; flex-shrink: 0;
-    display: flex; align-items: center; gap: 5px;
+    display: flex; align-items: center; gap: 6px;
+    transition: background .15s ease, color .15s ease;
   }
-  .tab-btn.active { background: white; color: var(--rose); }
+  .tab-btn.active { background: var(--brand); color: white; }
   .tab-btn .count {
-    background: rgba(0,0,0,0.15); border-radius: 10px; padding: 1px 6px; font-size: 0.7rem;
+    background: rgba(255,255,255,0.15); border-radius: 10px; padding: 1px 7px; font-size: 0.68rem; font-family: var(--font-body); font-weight: 600;
   }
-  .tab-btn.active .count { background: rgba(214,51,108,0.15); }
+  .tab-btn.active .count { background: rgba(255,255,255,0.25); }
 
   .subbar {
     position: absolute; top: 56px; left: 0; right: 0; height: 44px;
-    z-index: 999; background: #212529; display: flex; align-items: center;
-    padding: 0 8px; gap: 6px;
+    z-index: 999; background: var(--surface); display: flex; align-items: center;
+    padding: 0 8px; gap: 6px; border-bottom: 1px solid var(--line);
   }
   .view-btn {
-    background: rgba(255,255,255,0.12); color: #ddd; border: none;
-    padding: 6px 14px; border-radius: 16px; font-weight: 700; font-size: 0.78rem;
+    background: var(--bg); color: var(--ink-soft); border: none;
+    padding: 6px 14px; border-radius: 16px; font-weight: 600; font-size: 0.78rem;
     cursor: pointer; display: flex; align-items: center; gap: 5px;
+    transition: background .15s ease, color .15s ease;
   }
-  .view-btn.active { background: var(--rose); color: white; }
+  .view-btn.active { background: var(--brand); color: white; }
   .subbar .spacer { flex: 1; }
   .edit-toggle {
-    background: rgba(255,255,255,0.12); color: #ddd; border: none;
-    padding: 6px 12px; border-radius: 16px; font-weight: 700; font-size: 0.76rem;
+    background: var(--bg); color: var(--ink-soft); border: none;
+    padding: 6px 12px; border-radius: 16px; font-weight: 600; font-size: 0.76rem;
     cursor: pointer; flex-shrink: 0; display: flex; align-items: center; gap: 4px;
+    transition: background .15s ease, color .15s ease;
   }
-  .edit-toggle.on { background: #fff; color: #212529; }
+  .edit-toggle.on { background: var(--coral); color: #fff; }
+  .view-btn.icon-only, .edit-toggle.icon-only { padding: 6px 11px; font-size: 0.95rem; }
+
+  .more-wrap { position: relative; flex-shrink: 0; }
+  .more-menu {
+    display: none; position: absolute; top: calc(100% + 8px); right: 0; z-index: 1001;
+    background: var(--surface); border-radius: 12px; box-shadow: var(--shadow-lg);
+    border: 1px solid var(--line); padding: 6px; min-width: 210px;
+  }
+  .more-menu.show { display: block; }
+  .more-menu button {
+    display: block; width: 100%; text-align: left; background: none; border: none;
+    padding: 10px 10px; border-radius: 8px; font-size: 0.83rem; font-weight: 600; color: var(--ink);
+    cursor: pointer;
+  }
+  .more-menu button:active { background: var(--bg); }
+
+  /* Em telas bem estreitas, esconde os rótulos de texto e deixa só os ícones */
+  @media (max-width: 400px) {
+    .btn-label { display: none; }
+    .view-btn, .edit-toggle { padding: 6px 11px; }
+  }
 
   .hint-bar {
     position: absolute; top: 106px; left: 50%; transform: translateX(-50%);
-    z-index: 999; background: #212529; color: white; padding: 6px 14px;
-    border-radius: 20px; font-size: 0.75rem; box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    z-index: 999; background: var(--ink); color: white; padding: 7px 15px;
+    border-radius: 20px; font-size: 0.75rem; font-weight: 500; box-shadow: var(--shadow-lg);
     display: none; max-width: 90vw; text-align: center;
   }
   .hint-bar.show { display: block; }
@@ -62,7 +106,7 @@
   /* ---------- Barra de categorias (Comércios e Lugares) ---------- */
   .catbar {
     position: absolute; top: 100px; left: 0; right: 0; height: 0; overflow: hidden;
-    z-index: 998; background: white; box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    z-index: 998; background: var(--surface); box-shadow: 0 1px 0 var(--line);
     transition: height .15s ease;
   }
   body.show-catbar .catbar { height: 46px; }
@@ -72,11 +116,12 @@
     height: 46px; display: flex; align-items: center; gap: 6px; padding: 0 8px; overflow-x: auto;
   }
   .cat-chip {
-    background: #f1f0ee; color: #444; border: none; padding: 7px 13px; border-radius: 16px;
-    font-size: 0.78rem; font-weight: 700; cursor: pointer; white-space: nowrap; flex-shrink: 0;
-    display: flex; align-items: center; gap: 4px;
+    background: var(--bg); color: var(--ink-soft); border: none; padding: 7px 13px; border-radius: 16px;
+    font-size: 0.78rem; font-weight: 600; cursor: pointer; white-space: nowrap; flex-shrink: 0;
+    display: flex; align-items: center; gap: 5px;
+    transition: background .15s ease, color .15s ease;
   }
-  .cat-chip.active { background: var(--rose); color: white; }
+  .cat-chip.active { background: var(--brand); color: white; }
   .cat-chip .count { opacity: 0.7; font-weight: 600; }
 
   /* ---------- Busca geral ---------- */
@@ -84,100 +129,114 @@
     position: absolute; inset: 0; z-index: 1500; background: var(--bg); display: none; flex-direction: column;
   }
   .search-overlay.show { display: flex; }
-  .search-overlay-bar { display: flex; gap: 8px; padding: 10px; background: #212529; flex-shrink: 0; }
+  .search-overlay-bar { display: flex; gap: 8px; padding: 10px; background: var(--ink); flex-shrink: 0; }
   .search-overlay-bar input {
-    flex: 1; padding: 10px 12px; border-radius: 10px; border: none; font-size: 0.9rem;
+    flex: 1; padding: 11px 14px; border-radius: 12px; border: none; font-size: 0.92rem; font-family: var(--font-body);
   }
+  .search-overlay-bar input:focus { outline: 2px solid var(--brand); outline-offset: 1px; }
   .search-overlay-bar button {
-    background: rgba(255,255,255,0.15); color: white; border: none; border-radius: 10px;
-    padding: 0 16px; font-size: 1.1rem; cursor: pointer;
+    background: rgba(255,255,255,0.12); color: white; border: none; border-radius: 12px;
+    padding: 0 18px; font-size: 1.1rem; cursor: pointer;
   }
   .search-overlay-results { flex: 1; overflow-y: auto; padding: 10px; }
   .search-result {
-    background: white; border-radius: 12px; padding: 10px 12px; margin-bottom: 8px;
-    display: flex; align-items: center; gap: 10px; box-shadow: 0 1px 4px rgba(0,0,0,0.12); cursor: pointer;
+    background: var(--surface); border-radius: var(--radius); padding: 12px 14px; margin-bottom: 8px;
+    display: flex; align-items: center; gap: 12px; box-shadow: var(--shadow); cursor: pointer;
+    border: 1px solid var(--line); transition: transform .1s ease;
   }
-  .search-result .badge { font-size: 1.2rem; flex-shrink: 0; }
-  .search-result .info b { display: block; font-size: 0.87rem; }
-  .search-result .info span { font-size: 0.72rem; color: #888; }
+  .search-result:active { transform: scale(0.98); }
+  .search-result .badge {
+    font-size: 1.1rem; flex-shrink: 0; width: 34px; height: 34px; border-radius: 10px;
+    background: var(--brand-soft); display: flex; align-items: center; justify-content: center;
+  }
+  .search-result .info b { display: block; font-size: 0.87rem; font-weight: 600; color: var(--ink); }
+  .search-result .info span { font-size: 0.74rem; color: var(--ink-soft); }
 
   .locate-btn {
-    position: absolute; bottom: 24px; right: 12px; z-index: 1000;
-    background: white; color: var(--rose); border: none; width: 46px; height: 46px;
-    border-radius: 50%; box-shadow: 0 2px 10px rgba(0,0,0,0.3); font-size: 20px;
+    position: absolute; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); right: 12px; z-index: 1000;
+    background: var(--surface); color: var(--brand); border: none; width: 48px; height: 48px;
+    border-radius: 50%; box-shadow: var(--shadow-lg); font-size: 20px;
     cursor: pointer; display: flex; align-items: center; justify-content: center;
   }
 
   .legend {
-    position: absolute; bottom: 24px; left: 12px; z-index: 1000;
-    background: white; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.3);
-    padding: 8px 12px; font-size: 0.72rem; line-height: 1.6; max-width: 46vw;
-    max-height: 40vh; overflow-y: auto;
+    position: absolute; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); left: 12px; z-index: 1000;
+    background: var(--surface); border-radius: 12px; box-shadow: var(--shadow-lg);
+    padding: 10px 13px; font-size: 0.72rem; line-height: 1.7; max-width: 46vw;
+    max-height: 40vh; overflow-y: auto; border: 1px solid var(--line);
   }
-  .legend b { display: block; margin-bottom: 3px; font-size: 0.76rem; }
-  .legend .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 5px; vertical-align: middle; border: 1px solid white; box-shadow: 0 0 0 1px rgba(0,0,0,0.3); }
+  .legend b { display: block; margin-bottom: 4px; font-size: 0.74rem; font-family: var(--font-display); color: var(--ink); }
+  .legend .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; vertical-align: middle; border: 1px solid white; box-shadow: 0 0 0 1px rgba(0,0,0,0.15); }
 
-  .saida-pin { width: 28px; height: 28px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); border: 2px solid white; box-shadow: 0 2px 6px rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; }
-  .saida-pin span { transform: rotate(45deg); color: white; font-weight: 800; font-size: 12px; }
+  .saida-pin { width: 28px; height: 28px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); border: 2px solid white; box-shadow: 0 3px 8px rgba(28,27,41,0.35); display: flex; align-items: center; justify-content: center; }
+  .saida-pin span { transform: rotate(45deg); color: white; font-weight: 800; font-size: 12px; font-family: var(--font-display); }
 
   .add-btn {
-    position: absolute; bottom: 24px; right: 68px; z-index: 1000;
-    background: #212529; color: white; border: none; width: 46px; height: 46px;
-    border-radius: 50%; box-shadow: 0 2px 10px rgba(0,0,0,0.3); font-size: 22px;
+    position: absolute; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); right: 70px; z-index: 1000;
+    background: var(--brand); color: white; border: none; width: 48px; height: 48px;
+    border-radius: 50%; box-shadow: var(--shadow-lg); font-size: 22px;
     cursor: pointer; display: none; align-items: center; justify-content: center;
   }
   .add-btn.show { display: flex; }
 
+  .popup-edit { font-family: var(--font-body); }
+  .popup-edit b { font-family: var(--font-display); color: var(--ink); }
   .popup-edit input, .popup-edit select {
-    width: 100%; padding: 5px 7px; margin: 3px 0; border: 1px solid #ccc; border-radius: 5px; font-size: 0.85rem;
+    width: 100%; padding: 7px 9px; margin: 4px 0; border: 1px solid var(--line); border-radius: 8px; font-size: 0.85rem; font-family: var(--font-body);
   }
+  .popup-edit input:focus, .popup-edit select:focus { outline: none; border-color: var(--brand); }
   .popup-edit button {
-    padding: 5px 10px; border: none; border-radius: 5px; font-size: 0.8rem; font-weight: 700; cursor: pointer; margin-top: 4px; margin-right: 4px;
+    padding: 6px 12px; border: none; border-radius: 8px; font-size: 0.8rem; font-weight: 700; cursor: pointer; margin-top: 5px; margin-right: 5px;
   }
-  .btn-save { background: #2f9e44; color: white; }
-  .btn-del { background: #e03131; color: white; }
+  .btn-save { background: #16a34a; color: white; }
+  .btn-del { background: #e11d48; color: white; }
 
   /* ---------- Lista view ---------- */
   .list-view {
     position: absolute; top: 100px; left: 0; right: 0; bottom: 0;
-    background: var(--bg); overflow-y: auto; padding: 10px 10px 90px; display: none;
+    background: var(--bg); overflow-y: auto; padding: 12px 12px calc(90px + env(safe-area-inset-bottom, 0px)); display: none;
   }
   .list-view.show { display: block; }
-  .list-add-bar { display: flex; gap: 8px; margin-bottom: 10px; }
+  .list-add-bar { display: flex; gap: 8px; margin-bottom: 12px; }
   .list-add-bar button {
-    flex: 1; background: #212529; color: white; border: none; border-radius: 10px;
-    padding: 10px; font-weight: 700; font-size: 0.85rem; cursor: pointer;
+    flex: 1; background: var(--brand); color: white; border: none; border-radius: 12px;
+    padding: 12px; font-weight: 700; font-family: var(--font-display); font-size: 0.85rem; cursor: pointer;
+    box-shadow: var(--shadow);
   }
   .list-search {
-    width: 100%; padding: 9px 12px; border-radius: 10px; border: 1px solid #ccc;
-    font-size: 0.85rem; margin-bottom: 10px; background: white;
+    width: 100%; padding: 11px 14px; border-radius: 12px; border: 1px solid var(--line);
+    font-size: 0.85rem; margin-bottom: 12px; background: var(--surface); font-family: var(--font-body);
   }
+  .list-search:focus { outline: none; border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-soft); }
   .card {
-    background: white; border-radius: 12px; padding: 10px 12px; margin-bottom: 8px;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.12); border-left: 5px solid #868e96;
+    background: var(--surface); border-radius: var(--radius); padding: 12px 14px; margin-bottom: 10px;
+    box-shadow: var(--shadow); border-left: 4px solid #a1a1aa; border-top: 1px solid var(--line); border-right: 1px solid var(--line); border-bottom: 1px solid var(--line);
+    transition: box-shadow .15s ease;
   }
   .card-row { display: flex; align-items: center; gap: 6px; margin-bottom: 5px; }
   .card input, .card select {
-    flex: 1; padding: 7px 9px; border: 1px solid #ddd; border-radius: 8px; font-size: 0.85rem;
-    background: #fafafa;
+    flex: 1; padding: 8px 10px; border: 1px solid var(--line); border-radius: 9px; font-size: 0.85rem;
+    background: var(--bg); font-family: var(--font-body); color: var(--ink);
   }
-  .card input:focus, .card select:focus { background: white; border-color: var(--rose); outline: none; }
-  .card.dirty { border-left-color: #f08c00; box-shadow: 0 0 0 2px rgba(240,140,0,0.22); }
-  .geo-status { font-size: 0.68rem; margin: -2px 0 4px; min-height: 12px; }
-  .geo-status.ok { color: #2f9e44; }
-  .geo-status.fail { color: #e03131; }
+  .card input:focus, .card select:focus { background: var(--surface); border-color: var(--brand); outline: none; box-shadow: 0 0 0 3px var(--brand-soft); }
+  .card.dirty { border-left-color: var(--gold); box-shadow: 0 0 0 2px rgba(217,154,61,0.25); }
+  .geo-status { font-size: 0.68rem; margin: -2px 0 4px; min-height: 12px; font-weight: 500; }
+  .geo-status.ok { color: #16a34a; }
+  .geo-status.fail { color: #e11d48; }
   .btn-save-card {
-    background: #2f9e44; color: white; opacity: 0.4;
+    background: #16a34a; color: white; opacity: 0.4;
   }
   .btn-save-card:not(:disabled) { opacity: 1; }
-  .card-label { font-size: 0.64rem; text-transform: uppercase; letter-spacing: .03em; color: #999; width: 100%; margin: 4px 0 -2px; }
-  .card-actions { display: flex; justify-content: flex-end; gap: 6px; margin-top: 6px; }
+  .card-label { font-size: 0.64rem; text-transform: uppercase; letter-spacing: .05em; color: #9691a8; font-weight: 700; width: 100%; margin: 5px 0 -2px; }
+  .card-actions { display: flex; justify-content: flex-end; gap: 6px; margin-top: 8px; }
   .card-actions button {
-    border: none; border-radius: 8px; padding: 6px 12px; font-size: 0.75rem; font-weight: 700; cursor: pointer;
+    border: none; border-radius: 9px; padding: 7px 13px; font-size: 0.75rem; font-weight: 700; cursor: pointer;
+    transition: filter .15s ease;
   }
-  .btn-locate { background: #e7f5ff; color: #1971c2; }
-  .btn-remove { background: #fff0f0; color: #e03131; }
-  .empty-msg { text-align: center; color: #999; font-size: 0.85rem; margin-top: 40px; }
+  .card-actions button:active { filter: brightness(0.95); }
+  .btn-locate { background: #ede9fe; color: var(--brand-dark); }
+  .btn-remove { background: #fde8ea; color: #e11d48; }
+  .empty-msg { text-align: center; color: #9691a8; font-size: 0.88rem; margin-top: 60px; font-weight: 500; }
 </style>
 </head>
 <body>
@@ -185,16 +244,24 @@
 <div class="topbar">
   <button class="tab-btn active" data-layer="grupos" onclick="switchTab('grupos', this)">📍 Grupos <span class="count" id="cnt-grupos">5</span></button>
   <button class="tab-btn" data-layer="comercios" onclick="switchTab('comercios', this)">🏪 Comércios e Lugares <span class="count" id="cnt-comercios">0</span></button>
-  <button class="tab-btn" data-layer="condominios" onclick="switchTab('condominios', this)">🏢 Condomínios e Prédios <span class="count" id="cnt-condominios">0</span></button>
+  <button class="tab-btn" data-layer="condominios" onclick="switchTab('condominios', this)">🏢 Condomínios <span class="count" id="cnt-condominios">0</span></button>
   <button class="tab-btn" data-layer="publicadores" onclick="switchTab('publicadores', this)">🏠 Publicadores <span class="count" id="cnt-publicadores">0</span></button>
 </div>
 
 <div class="subbar">
-  <button class="view-btn active" id="viewMapaBtn" onclick="setViewMode('mapa')">🗺️ Mapa</button>
-  <button class="view-btn" id="viewListaBtn" onclick="setViewMode('lista')">📋 Lista</button>
-  <button class="view-btn" onclick="openGlobalSearch()">🔍 Buscar tudo</button>
+  <button class="view-btn active" id="viewMapaBtn" onclick="setViewMode('mapa')">🗺️ <span class="btn-label">Mapa</span></button>
+  <button class="view-btn" id="viewListaBtn" onclick="setViewMode('lista')">📋 <span class="btn-label">Lista</span></button>
+  <button class="view-btn icon-only" onclick="openGlobalSearch()" aria-label="Buscar tudo">🔍</button>
   <div class="spacer"></div>
-  <button class="edit-toggle" id="editToggleBtn" onclick="toggleEditMode()">✏️ Arrastar no mapa</button>
+  <button class="edit-toggle" id="editToggleBtn" onclick="toggleEditMode()">✏️ <span class="btn-label">Arrastar</span></button>
+  <div class="more-wrap">
+    <button class="edit-toggle icon-only" onclick="toggleMoreMenu()" aria-label="Mais opções">⋮</button>
+    <div class="more-menu" id="moreMenu">
+      <button onclick="closeMoreMenu(); exportData()">💾 Exportar dados (backup)</button>
+      <button onclick="closeMoreMenu(); document.getElementById('importFile').click()">📂 Importar dados</button>
+    </div>
+  </div>
+  <input type="file" id="importFile" accept="application/json" style="display:none" onchange="importData(event)">
 </div>
 
 <div class="catbar" id="catbar">
@@ -243,6 +310,83 @@
   ];
 
   const groupColors = { "Amor": "#e03131", "Paz": "#1971c2", "Alegria": "#2f9e44", "Bondade": "#f08c00", "Paciência": "#9c36b5" };
+
+  // ---------- Persistência local (salva automaticamente as edições no navegador) ----------
+  const DATA_STORAGE = "jardim-ivete-dados-v1";
+
+  // Remove referências circulares (ex: _marker do Leaflet) antes de serializar
+  function jsonReplacer(key, value) {
+    if (key === '_marker') return undefined;
+    return value;
+  }
+
+  function saveState() {
+    try {
+      const payload = { saidasData, comerciosData, condominiosData, publicadoresData, savedAt: new Date().toISOString() };
+      localStorage.setItem(DATA_STORAGE, JSON.stringify(payload, jsonReplacer));
+    } catch (e) { console.error('Falha ao salvar dados localmente:', e); }
+  }
+
+  function loadState() {
+    try {
+      const raw = localStorage.getItem(DATA_STORAGE);
+      if (!raw) return;
+      const saved = JSON.parse(raw);
+      if (Array.isArray(saved.saidasData)) { saidasData.length = 0; saved.saidasData.forEach(x => saidasData.push(x)); }
+      if (Array.isArray(saved.comerciosData)) { comerciosData.length = 0; saved.comerciosData.forEach(x => comerciosData.push(x)); }
+      if (Array.isArray(saved.condominiosData)) { condominiosData.length = 0; saved.condominiosData.forEach(x => condominiosData.push(x)); }
+      if (Array.isArray(saved.publicadoresData)) { publicadoresData.length = 0; saved.publicadoresData.forEach(x => publicadoresData.push(x)); }
+    } catch (e) { console.error('Falha ao carregar dados salvos:', e); }
+  }
+  loadState();
+
+  function toggleMoreMenu() {
+    document.getElementById('moreMenu').classList.toggle('show');
+  }
+  function closeMoreMenu() {
+    document.getElementById('moreMenu').classList.remove('show');
+  }
+  document.addEventListener('click', (e) => {
+    const wrap = document.querySelector('.more-wrap');
+    if (wrap && !wrap.contains(e.target)) closeMoreMenu();
+  });
+
+  function exportData() {
+    const payload = { saidasData, comerciosData, condominiosData, publicadoresData, exportedAt: new Date().toISOString() };
+    const blob = new Blob([JSON.stringify(payload, jsonReplacer, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const dataStr = new Date().toISOString().slice(0, 10);
+    a.href = url;
+    a.download = `territorio-jardim-ivete-${dataStr}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  function importData(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const saved = JSON.parse(reader.result);
+        if (!confirm('Importar este arquivo vai substituir todos os dados atuais (grupos, comércios, condomínios, publicadores). Continuar?')) return;
+        if (Array.isArray(saved.saidasData)) { saidasData.length = 0; saved.saidasData.forEach(x => saidasData.push(x)); }
+        if (Array.isArray(saved.comerciosData)) { comerciosData.length = 0; saved.comerciosData.forEach(x => comerciosData.push(x)); }
+        if (Array.isArray(saved.condominiosData)) { condominiosData.length = 0; saved.condominiosData.forEach(x => condominiosData.push(x)); }
+        if (Array.isArray(saved.publicadoresData)) { publicadoresData.length = 0; saved.publicadoresData.forEach(x => publicadoresData.push(x)); }
+        renderGrupos(); renderComercios(); renderCondominios(); renderPublicadores();
+        updateLegend(); renderList();
+        alert('Dados importados com sucesso!');
+      } catch (e) {
+        alert('Não consegui ler esse arquivo — verifique se é um JSON exportado por este app.');
+      }
+    };
+    reader.readAsText(file);
+    event.target.value = '';
+  }
 
   // ---------- Geocodificação (mesma API/chave e mesmo cache usados no grupos.html) ----------
   const GEO_API_KEY = "a5769984623a48f69c9ba7f9022a7858";
@@ -369,6 +513,7 @@
       s._marker = marker;
     });
     document.getElementById('cnt-grupos').textContent = saidasData.length;
+    saveState();
   }
 
   // ---------- COMÉRCIOS layer ----------
@@ -419,6 +564,7 @@
       c._marker = marker;
     });
     document.getElementById('cnt-comercios').textContent = comerciosData.length;
+    saveState();
   }
 
   // ---------- CONDOMÍNIOS/PRÉDIOS layer ----------
@@ -466,6 +612,7 @@
       c._marker = marker;
     });
     document.getElementById('cnt-condominios').textContent = condominiosData.length;
+    saveState();
   }
 
   // ---------- PUBLICADORES layer ----------
@@ -519,6 +666,7 @@
       p._marker = marker;
     });
     document.getElementById('cnt-publicadores').textContent = (activeGroupFilter ? items.length + '/' : '') + publicadoresData.length;
+    saveState();
   }
 
   renderGrupos(); renderComercios(); renderCondominios(); renderPublicadores();
