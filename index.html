@@ -56,19 +56,20 @@
     position: absolute; top: 56px; left: 0; right: 0; height: 44px;
     z-index: 999; background: var(--surface); display: flex; align-items: center;
     padding: 0 8px; gap: 6px; border-bottom: 1px solid var(--line);
+    overflow-x: auto; -webkit-overflow-scrolling: touch;
   }
   .view-btn {
     background: var(--bg); color: var(--ink-soft); border: none;
     padding: 6px 14px; border-radius: 16px; font-weight: 600; font-size: 0.78rem;
-    cursor: pointer; display: flex; align-items: center; gap: 5px;
+    cursor: pointer; display: flex; align-items: center; gap: 5px; white-space: nowrap; flex-shrink: 0;
     transition: background .15s ease, color .15s ease;
   }
   .view-btn.active { background: var(--brand); color: white; }
-  .subbar .spacer { flex: 1; }
+  .subbar .spacer { flex: 0 0 10px; }
   .edit-toggle {
     background: var(--bg); color: var(--ink-soft); border: none;
     padding: 6px 12px; border-radius: 16px; font-weight: 600; font-size: 0.76rem;
-    cursor: pointer; flex-shrink: 0; display: flex; align-items: center; gap: 4px;
+    cursor: pointer; flex-shrink: 0; white-space: nowrap; display: flex; align-items: center; gap: 4px;
     transition: background .15s ease, color .15s ease;
   }
   .edit-toggle.on { background: var(--coral); color: #fff; }
@@ -678,11 +679,13 @@
     layerGroups.quadras.clearLayers();
     quadrasData.forEach(function(qd, idx) {
       const cor = qd.cor || getColorForMapa(qd.mapa);
+      const baseWeight = qd.weight || 3;
       const isFiltered = !!activeMapaFilter;
       const match = qd.mapa === activeMapaFilter;
       const fillOpacity = isFiltered ? (match ? 0.55 : 0.06) : 0.32;
       const borderOpacity = isFiltered ? (match ? 1 : 0.25) : 0.9;
-      const poly = L.polygon(qd.coords, { color: cor, weight: (match || !isFiltered) ? 3 : 1, fillColor: cor, fillOpacity, opacity: borderOpacity });
+      const weight = (match || !isFiltered) ? baseWeight : Math.max(1, baseWeight - 2);
+      const poly = L.polygon(qd.coords, { color: cor, weight, fillColor: cor, fillOpacity, opacity: borderOpacity });
       poly.bindPopup(`<b>Mapa ${qd.mapa}</b>${qd.nome ? '<br>' + qd.nome : ''}<br><span style="font-size:0.8em;color:#666">${qd.coords.length} pontos no contorno</span>` +
         (editMode ? `<br><button onclick="deleteQuadra(${idx})" style="margin-top:6px;background:#e11d48;color:white;border:none;border-radius:8px;padding:6px 12px;font-size:0.8rem;font-weight:700;cursor:pointer">🗑️ Excluir quadra</button>` : ''));
       poly.addTo(layerGroups.quadras);
@@ -815,6 +818,8 @@
     document.querySelector('.locate-btn').style.display = mode === 'mapa' ? 'flex' : 'none';
     document.getElementById('listView').classList.toggle('show', mode === 'lista');
     document.getElementById('addBtn').style.display = (mode === 'mapa' && editMode) ? 'flex' : 'none';
+    document.getElementById('hintBar').classList.toggle('show', mode === 'mapa' && editMode);
+    if (mode === 'lista') { stopDrawing(); document.getElementById('drawToolbar').classList.remove('show'); }
     if (mode === 'mapa') { setTimeout(() => map.invalidateSize(), 50); }
     if (mode === 'lista') renderList();
   }
@@ -1295,6 +1300,7 @@
       if (!items.length) { box.innerHTML = '<div class="empty-msg">Nenhuma quadra encontrada. Ative "✏️ Editar quadras" e toque em ➕ no mapa pra desenhar uma.</div>'; return; }
       items.forEach(qd => {
         const cor = qd.cor || getColorForMapa(qd.mapa);
+        const weight = qd.weight || 3;
         const card = document.createElement('div');
         card.className = 'card';
         card.style.borderLeftColor = cor;
@@ -1303,6 +1309,13 @@
           <div class="card-row"><input type="text" data-f="mapa" value="${qd.mapa}" placeholder="Ex: 15"></div>
           <div class="card-label">Nome/observação (opcional)</div>
           <div class="card-row"><input type="text" data-f="nome" value="${qd.nome || ''}" placeholder="Ex: Quadra da praça"></div>
+          <div class="card-label">Cor da quadra</div>
+          <div class="card-row">
+            <input type="color" data-f="cor" value="${cor}" style="flex:0 0 52px; padding:2px; height:38px; cursor:pointer">
+            <button type="button" class="btn-cor-auto" style="flex-shrink:0;background:var(--bg);color:var(--ink-soft);border:1px solid var(--line);border-radius:9px;padding:8px 10px;font-size:0.75rem;font-weight:600;cursor:pointer">🎨 Cor automática</button>
+          </div>
+          <div class="card-label">Espessura da linha (contorno)</div>
+          <div class="card-row"><input type="number" data-f="weight" min="1" max="12" step="1" value="${weight}"></div>
           <div class="card-label" style="font-size:0.7rem;color:#999">${qd.coords.length} pontos no contorno</div>
           <div class="card-actions">
             <button class="btn-save-card" disabled>💾 Salvar</button>
@@ -1311,9 +1324,17 @@
           </div>
         `;
         wireDirty(card);
+        card.querySelector('.btn-cor-auto').onclick = () => {
+          card.querySelector('[data-f="cor"]').value = getColorForMapa(card.querySelector('[data-f="mapa"]').value.trim() || qd.mapa);
+          card.classList.add('dirty');
+          card.querySelector('.btn-save-card').disabled = false;
+        };
         card.querySelector('.btn-save-card').onclick = () => {
           qd.mapa = card.querySelector('[data-f="mapa"]').value.trim();
           qd.nome = card.querySelector('[data-f="nome"]').value;
+          qd.cor = card.querySelector('[data-f="cor"]').value;
+          const w = parseInt(card.querySelector('[data-f="weight"]').value, 10);
+          qd.weight = isNaN(w) ? 3 : Math.max(1, Math.min(12, w));
           renderQuadras(); renderCatbar(); updateLegend(); finishSave(card);
         };
         card.querySelector('.btn-locate').onclick = () => focusItem(qd);
