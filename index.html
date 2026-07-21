@@ -267,7 +267,19 @@ body.show-catbar .hint-toast { top: calc(var(--topbar-h) + var(--chipbar-h) + va
 }
 .card.dirty { border-left-color: var(--md-warning); }
 .card-header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
-.card-avatar { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
+.card-avatar { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; overflow: hidden; }
+.card-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.photo-row { display: flex; align-items: center; gap: 10px; margin-bottom: 2px; }
+.photo-thumb { width: 64px; height: 64px; border-radius: 10px; object-fit: cover; border: 1px solid var(--md-outline); flex-shrink: 0; }
+.photo-placeholder { width: 64px; height: 64px; border-radius: 10px; background: var(--md-surface-variant); display: flex; align-items: center; justify-content: center; font-size: 22px; color: var(--md-on-surface-variant); flex-shrink: 0; border: 1.5px dashed var(--md-outline); }
+.photo-actions { display: flex; flex-direction: column; gap: 6px; flex: 1; }
+.btn-photo { background: var(--md-primary-light); color: var(--md-primary-dark); }
+.btn-photo-remove { background: #fce8e6; color: var(--md-error); }
+.popup-photo { width: 100%; max-height: 130px; object-fit: cover; border-radius: 8px; margin-bottom: 6px; display: block; }
+.btn-streetview { background: var(--md-surface-variant); color: var(--md-on-surface-variant); border: 1px solid var(--md-outline); }
+.streetview-box { margin-top: 10px; border-radius: 10px; overflow: hidden; border: 1px solid var(--md-outline); }
+.streetview-box iframe { width: 100%; height: 200px; border: 0; display: block; }
+.streetview-note { font-size: 0.68rem; color: var(--md-on-surface-variant); padding: 6px 8px; background: var(--md-surface-variant); }
 .card-name { font-family: var(--font-display); font-weight: 700; font-size: 0.9rem; color: var(--md-on-surface); }
 .card-sub { font-size: 0.75rem; color: var(--md-on-surface-variant); margin-top: 1px; }
 .card-label {
@@ -617,6 +629,50 @@ async function reverseGeocode(lat, lng) {
 }
 loadGeoCache();
 
+// ── FOTOS ──
+function compressImage(file, maxDim = 640, quality = 0.7) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const reader = new FileReader();
+    reader.onload = () => { img.onload = () => {
+      let w = img.width, h = img.height;
+      if (w > h && w > maxDim) { h = Math.round(h * maxDim / w); w = maxDim; }
+      else if (h >= w && h > maxDim) { w = Math.round(w * maxDim / h); h = maxDim; }
+      const canvas = document.createElement('canvas'); canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      resolve(canvas.toDataURL('image/jpeg', quality));
+    }; img.onerror = reject; img.src = reader.result; };
+    reader.onerror = reject; reader.readAsDataURL(file);
+  });
+}
+function photoBlockHTML(item) {
+  return `<div class="card-label">Foto da frente</div><div class="photo-row">${item.foto ? `<img src="${item.foto}" class="photo-thumb">` : `<div class="photo-placeholder">📷</div>`}<div class="photo-actions"><label class="btn-action btn-photo">📷 ${item.foto ? 'Trocar foto' : 'Tirar foto'}<input type="file" accept="image/*" capture="environment" class="photo-input" hidden></label>${item.foto ? '<button type="button" class="btn-action btn-photo-remove">🗑 Remover foto</button>' : ''}${(item.lat&&item.lng)?'<button type="button" class="btn-action btn-streetview">🌐 Ver rua (Street View)</button>':''}</div></div><div class="streetview-box" hidden></div>`;
+}
+function wireStreetView(card, item) {
+  const btn = card.querySelector('.btn-streetview');
+  const box = card.querySelector('.streetview-box');
+  if (!btn) return;
+  btn.onclick = () => {
+    if (!box.hidden) { box.hidden = true; box.innerHTML=''; btn.textContent='🌐 Ver rua (Street View)'; return; }
+    box.innerHTML = `<iframe src="https://maps.google.com/maps?layer=c&cbll=${item.lat},${item.lng}&cbp=0,0,0,0,0&source=embed&output=svembed" loading="lazy" allowfullscreen></iframe><div class="streetview-note">Imagem do Google Street View — pode não haver cobertura para todas as ruas.</div>`;
+    box.hidden = false; btn.textContent='🌐 Ocultar rua';
+  };
+}
+function wirePhotoBlock(card, item, rerenderFn) {
+  const input = card.querySelector('.photo-input');
+  if (input) input.onchange = async () => {
+    const file = input.files[0]; if (!file) return;
+    showSnack('📷 Processando foto...');
+    try { item.foto = await compressImage(file); saveState(); rerenderFn(); renderList(); showSnack('✓ Foto salva'); }
+    catch (e) { showSnack('❌ Não foi possível salvar a foto'); }
+  };
+  const rm = card.querySelector('.btn-photo-remove');
+  if (rm) rm.onclick = () => { delete item.foto; saveState(); rerenderFn(); renderList(); showSnack('🗑 Foto removida'); };
+}
+function avatarHTML(item, emoji, bg) {
+  return item.foto ? `<img src="${item.foto}">` : `<span style="font-size:18px">${emoji}</span>`;
+}
+
 // ── MAP ──
 const map = L.map('map', { zoomControl: true, tap: true });
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(map);
@@ -694,7 +750,7 @@ function renderGrupos() {
   saidasData.forEach(s => {
     let lat = s.lat, lng = s.lng; if (s.offset) { lat += s.offset[0]; lng += s.offset[1]; }
     const marker = L.marker([lat,lng], { icon: makeDivIcon(s.cor, s.grupo[0]), draggable: editMode });
-    marker.bindPopup(editMode ? editSaidaPopup(marker,s) : `<b>Grupo ${s.grupo}</b><br>Saída: ${s.nome}${s.endereco?'<br><small style="color:#5f6368">'+s.endereco+'</small>':''}`);
+    marker.bindPopup(editMode ? editSaidaPopup(marker,s) : `${s.foto?`<img src="${s.foto}" class="popup-photo">`:''}<b>Grupo ${s.grupo}</b><br>Saída: ${s.nome}${s.endereco?'<br><small style="color:#5f6368">'+s.endereco+'</small>':''}`);
     marker.on('dragend', e => { const p=e.target.getLatLng(); s.lat=p.lat; s.lng=p.lng; delete s.offset; });
     marker.addTo(layerGroups.grupos); s._marker = marker;
   });
@@ -706,7 +762,7 @@ function renderComercios() {
   const items = activeCategoryFilter ? comerciosData.filter(c=>c.categoria===activeCategoryFilter) : comerciosData;
   items.forEach(c => {
     const marker = L.marker([c.lat,c.lng], { icon: makeDotIcon(c.cor||'#868e96'), draggable: editMode });
-    marker.bindPopup(editMode ? editComercioPopup(marker,c) : `<b>${c.nome}</b><br>${c.categoria}<br><small style="color:#5f6368">${c.endereco}</small>`);
+    marker.bindPopup(editMode ? editComercioPopup(marker,c) : `${c.foto?`<img src="${c.foto}" class="popup-photo">`:''}<b>${c.nome}</b><br>${c.categoria}<br><small style="color:#5f6368">${c.endereco}</small>`);
     marker.on('dragend', e => { const p=e.target.getLatLng(); c.lat=p.lat; c.lng=p.lng; });
     marker.addTo(layerGroups.comercios); c._marker = marker;
   });
@@ -717,7 +773,7 @@ function renderCondominios() {
   layerGroups.condominios.clearLayers();
   condominiosData.forEach(c => {
     const marker = L.marker([c.lat,c.lng], { icon: makeDotIcon(c.cor||'#364fc7'), draggable: editMode });
-    marker.bindPopup(editMode ? editCondominioPopup(marker,c) : `<b>${c.nome}</b><br>Condomínio/Prédio<br><small style="color:#5f6368">${c.endereco}</small>`);
+    marker.bindPopup(editMode ? editCondominioPopup(marker,c) : `${c.foto?`<img src="${c.foto}" class="popup-photo">`:''}<b>${c.nome}</b><br>Condomínio/Prédio<br><small style="color:#5f6368">${c.endereco}</small>`);
     marker.on('dragend', e => { const p=e.target.getLatLng(); c.lat=p.lat; c.lng=p.lng; });
     marker.addTo(layerGroups.condominios); c._marker = marker;
   });
@@ -730,7 +786,7 @@ function renderPublicadores() {
   items.forEach(p => {
     const cor = groupColors[p.grupo] || '#868e96';
     const marker = L.marker([p.lat,p.lng], { icon: makeDotIcon(cor), draggable: editMode });
-    marker.bindPopup(editMode ? editPublicadorPopup(marker,p) : `<b>${p.membros.join(', ')}</b><br>Grupo: ${p.grupo}${p.endereco?'<br><small style="color:#5f6368">'+p.endereco+'</small>':''}`);
+    marker.bindPopup(editMode ? editPublicadorPopup(marker,p) : `${p.foto?`<img src="${p.foto}" class="popup-photo">`:''}<b>${p.membros.join(', ')}</b><br>Grupo: ${p.grupo}${p.endereco?'<br><small style="color:#5f6368">'+p.endereco+'</small>':''}`);
     marker.on('dragend', e => { const pos=e.target.getLatLng(); p.lat=pos.lat; p.lng=pos.lng; });
     marker.addTo(layerGroups.publicadores); p._marker = marker;
   });
@@ -978,8 +1034,10 @@ function renderList() {
     if (!items.length) { box.innerHTML='<div class="empty-msg"><strong>📭</strong>Nenhum grupo encontrado</div>'; return; }
     items.forEach(s=>{
       const card=document.createElement('div'); card.className='card'; card.style.borderLeftColor=s.cor||'#dadce0';
-      card.innerHTML=`<div class="card-header"><div class="card-avatar" style="background:${s.cor}20"><span style="font-size:18px">📍</span></div><div><div class="card-name">Grupo ${s.grupo}</div><div class="card-sub">${s.nome||'Sem referência'}</div></div></div><div class="card-label">Nome do grupo</div><div class="card-row"><input type="text" data-f="grupo" value="${s.grupo}"></div><div class="card-label">Referência da casa</div><div class="card-row"><input type="text" data-f="nome" value="${s.nome}"></div><div class="card-label">Endereço</div><div class="card-row"><input type="text" data-f="endereco" value="${s.endereco||''}"></div><div class="geo-status" data-geo-status></div><div class="card-actions"><button class="btn-action btn-save-card" disabled>💾 Salvar</button><button class="btn-action btn-locate">🗺 Ver</button><button class="btn-action btn-remove">🗑</button></div>`;
+      card.innerHTML=`<div class="card-header"><div class="card-avatar" style="background:${s.cor}20">${avatarHTML(s,'📍')}</div><div><div class="card-name">Grupo ${s.grupo}</div><div class="card-sub">${s.nome||'Sem referência'}</div></div></div>${photoBlockHTML(s)}<div class="card-label">Nome do grupo</div><div class="card-row"><input type="text" data-f="grupo" value="${s.grupo}"></div><div class="card-label">Referência da casa</div><div class="card-row"><input type="text" data-f="nome" value="${s.nome}"></div><div class="card-label">Endereço</div><div class="card-row"><input type="text" data-f="endereco" value="${s.endereco||''}"></div><div class="geo-status" data-geo-status></div><div class="card-actions"><button class="btn-action btn-save-card" disabled>💾 Salvar</button><button class="btn-action btn-locate">🗺 Ver</button><button class="btn-action btn-remove">🗑</button></div>`;
       wireDirty(card);
+      wirePhotoBlock(card,s,renderGrupos);
+      wireStreetView(card,s);
       card.querySelector('.btn-save-card').onclick=async()=>{const btn=card.querySelector('.btn-save-card'); const st=card.querySelector('[data-geo-status]'); btn.disabled=true; s.grupo=card.querySelector('[data-f="grupo"]').value; s.nome=card.querySelector('[data-f="nome"]').value; const ne=card.querySelector('[data-f="endereco"]').value; if(ne&&ne!==s.endereco){btn.textContent='Localizando...'; const res=await geocode(ne); if(res){s.lat=res.lat;s.lng=res.lng;st.className='geo-status ok';st.textContent='✓ Localizado';} else {st.className='geo-status fail';st.textContent='✗ Não encontrado';}} else st.textContent=''; s.endereco=ne; renderGrupos(); finishSave(card);};
       card.querySelector('.btn-locate').onclick=()=>focusItem(s);
       card.querySelector('.btn-remove').onclick=()=>{if(!confirm('Remover grupo?')) return; const idx=saidasData.indexOf(s); if(idx>-1) saidasData.splice(idx,1); renderGrupos(); renderList();};
@@ -993,8 +1051,10 @@ function renderList() {
     if (!items.length) { box.innerHTML='<div class="empty-msg"><strong>🏪</strong>Nenhum comércio encontrado</div>'; return; }
     items.forEach(c=>{
       const card=document.createElement('div'); card.className='card'; card.style.borderLeftColor=c.cor||'#dadce0';
-      card.innerHTML=`<div class="card-header"><div class="card-avatar" style="background:${c.cor||'#868e96'}20"><span style="font-size:18px">🏪</span></div><div><div class="card-name">${c.nome}</div><div class="card-sub">${c.categoria}</div></div></div><div class="card-label">Nome</div><div class="card-row"><input type="text" data-f="nome" value="${c.nome}"></div><div class="card-label">Categoria</div><div class="card-row"><input type="text" data-f="categoria" value="${c.categoria}"></div><div class="card-label">Endereço</div><div class="card-row"><input type="text" data-f="endereco" value="${c.endereco}"></div><div class="geo-status" data-geo-status></div><div class="card-actions"><button class="btn-action btn-save-card" disabled>💾 Salvar</button><button class="btn-action btn-locate">🗺 Ver</button><button class="btn-action btn-remove">🗑</button></div>`;
+      card.innerHTML=`<div class="card-header"><div class="card-avatar" style="background:${c.cor||'#868e96'}20">${avatarHTML(c,'🏪')}</div><div><div class="card-name">${c.nome}</div><div class="card-sub">${c.categoria}</div></div></div>${photoBlockHTML(c)}<div class="card-label">Nome</div><div class="card-row"><input type="text" data-f="nome" value="${c.nome}"></div><div class="card-label">Categoria</div><div class="card-row"><input type="text" data-f="categoria" value="${c.categoria}"></div><div class="card-label">Endereço</div><div class="card-row"><input type="text" data-f="endereco" value="${c.endereco}"></div><div class="geo-status" data-geo-status></div><div class="card-actions"><button class="btn-action btn-save-card" disabled>💾 Salvar</button><button class="btn-action btn-locate">🗺 Ver</button><button class="btn-action btn-remove">🗑</button></div>`;
       wireDirty(card);
+      wirePhotoBlock(card,c,renderComercios);
+      wireStreetView(card,c);
       card.querySelector('.btn-save-card').onclick=async()=>{const btn=card.querySelector('.btn-save-card'); const st=card.querySelector('[data-geo-status]'); btn.disabled=true; c.nome=card.querySelector('[data-f="nome"]').value; c.categoria=card.querySelector('[data-f="categoria"]').value; const ne=card.querySelector('[data-f="endereco"]').value; if(ne&&ne!==c.endereco){btn.textContent='Localizando...'; const res=await geocode(ne); if(res){c.lat=res.lat;c.lng=res.lng;st.className='geo-status ok';st.textContent='✓ Localizado';} else{st.className='geo-status fail';st.textContent='✗ Não encontrado';}} else st.textContent=''; c.endereco=ne; renderComercios(); finishSave(card);};
       card.querySelector('.btn-locate').onclick=()=>focusItem(c);
       card.querySelector('.btn-remove').onclick=()=>{if(!confirm('Remover?')) return; const idx=comerciosData.indexOf(c); if(idx>-1) comerciosData.splice(idx,1); renderComercios(); renderList();};
@@ -1007,8 +1067,10 @@ function renderList() {
     if (!items.length) { box.innerHTML='<div class="empty-msg"><strong>🏢</strong>Nenhum condomínio encontrado</div>'; return; }
     items.forEach(c=>{
       const card=document.createElement('div'); card.className='card'; card.style.borderLeftColor=c.cor||'#364fc7';
-      card.innerHTML=`<div class="card-header"><div class="card-avatar" style="background:#364fc720"><span style="font-size:18px">🏢</span></div><div><div class="card-name">${c.nome}</div><div class="card-sub">${c.endereco}</div></div></div><div class="card-label">Nome</div><div class="card-row"><input type="text" data-f="nome" value="${c.nome}"></div><div class="card-label">Endereço</div><div class="card-row"><input type="text" data-f="endereco" value="${c.endereco}"></div><div class="geo-status" data-geo-status></div><div class="card-actions"><button class="btn-action btn-save-card" disabled>💾 Salvar</button><button class="btn-action btn-locate">🗺 Ver</button><button class="btn-action btn-remove">🗑</button></div>`;
+      card.innerHTML=`<div class="card-header"><div class="card-avatar" style="background:#364fc720">${avatarHTML(c,'🏢')}</div><div><div class="card-name">${c.nome}</div><div class="card-sub">${c.endereco}</div></div></div>${photoBlockHTML(c)}<div class="card-label">Nome</div><div class="card-row"><input type="text" data-f="nome" value="${c.nome}"></div><div class="card-label">Endereço</div><div class="card-row"><input type="text" data-f="endereco" value="${c.endereco}"></div><div class="geo-status" data-geo-status></div><div class="card-actions"><button class="btn-action btn-save-card" disabled>💾 Salvar</button><button class="btn-action btn-locate">🗺 Ver</button><button class="btn-action btn-remove">🗑</button></div>`;
       wireDirty(card);
+      wirePhotoBlock(card,c,renderCondominios);
+      wireStreetView(card,c);
       card.querySelector('.btn-save-card').onclick=async()=>{const btn=card.querySelector('.btn-save-card'); const st=card.querySelector('[data-geo-status]'); btn.disabled=true; c.nome=card.querySelector('[data-f="nome"]').value; const ne=card.querySelector('[data-f="endereco"]').value; if(ne&&ne!==c.endereco){btn.textContent='Localizando...'; const res=await geocode(ne); if(res){c.lat=res.lat;c.lng=res.lng;st.className='geo-status ok';st.textContent='✓ Localizado';} else{st.className='geo-status fail';st.textContent='✗ Não encontrado';}} else st.textContent=''; c.endereco=ne; renderCondominios(); finishSave(card);};
       card.querySelector('.btn-locate').onclick=()=>focusItem(c);
       card.querySelector('.btn-remove').onclick=()=>{if(!confirm('Remover?')) return; const idx=condominiosData.indexOf(c); if(idx>-1) condominiosData.splice(idx,1); renderCondominios(); renderList();};
@@ -1023,8 +1085,10 @@ function renderList() {
     items.forEach(p=>{
       const cor=groupColors[p.grupo]||'#868e96';
       const card=document.createElement('div'); card.className='card'; card.style.borderLeftColor=cor;
-      card.innerHTML=`<div class="card-header"><div class="card-avatar" style="background:${cor}20"><span style="font-size:18px">🏠</span></div><div><div class="card-name">${p.membros[0]||'Família'}</div><div class="card-sub">Grupo ${p.grupo} — ${p.membros.length} membro(s)</div></div></div><div class="card-label">Membros</div><div class="card-row"><input type="text" data-f="membros" value="${p.membros.join(', ')}"></div><div class="card-label">Grupo</div><div class="card-row"><select data-f="grupo">${Object.keys(groupColors).map(g=>`<option value="${g}" ${g===p.grupo?'selected':''}>${g}</option>`).join('')}</select></div><div class="card-label">Endereço</div><div class="card-row"><input type="text" data-f="endereco" value="${p.endereco||''}"></div><div class="geo-status" data-geo-status></div><div class="card-actions"><button class="btn-action btn-save-card" disabled>💾 Salvar</button><button class="btn-action btn-locate">🗺 Ver</button><button class="btn-action btn-remove">🗑</button></div>`;
+      card.innerHTML=`<div class="card-header"><div class="card-avatar" style="background:${cor}20">${avatarHTML(p,'🏠')}</div><div><div class="card-name">${p.membros[0]||'Família'}</div><div class="card-sub">Grupo ${p.grupo} — ${p.membros.length} membro(s)</div></div></div>${photoBlockHTML(p)}<div class="card-label">Membros</div><div class="card-row"><input type="text" data-f="membros" value="${p.membros.join(', ')}"></div><div class="card-label">Grupo</div><div class="card-row"><select data-f="grupo">${Object.keys(groupColors).map(g=>`<option value="${g}" ${g===p.grupo?'selected':''}>${g}</option>`).join('')}</select></div><div class="card-label">Endereço</div><div class="card-row"><input type="text" data-f="endereco" value="${p.endereco||''}"></div><div class="geo-status" data-geo-status></div><div class="card-actions"><button class="btn-action btn-save-card" disabled>💾 Salvar</button><button class="btn-action btn-locate">🗺 Ver</button><button class="btn-action btn-remove">🗑</button></div>`;
       wireDirty(card);
+      wirePhotoBlock(card,p,renderPublicadores);
+      wireStreetView(card,p);
       card.querySelector('.btn-save-card').onclick=async()=>{const btn=card.querySelector('.btn-save-card'); const st=card.querySelector('[data-geo-status]'); btn.disabled=true; p.membros=card.querySelector('[data-f="membros"]').value.split(',').map(s=>s.trim()).filter(Boolean); p.grupo=card.querySelector('[data-f="grupo"]').value; const ne=card.querySelector('[data-f="endereco"]').value; if(ne&&ne!==p.endereco){btn.textContent='Localizando...'; const res=await geocode(ne); if(res){p.lat=res.lat;p.lng=res.lng;st.className='geo-status ok';st.textContent='✓ Localizado';} else{st.className='geo-status fail';st.textContent='✗ Não encontrado';}} else st.textContent=''; p.endereco=ne; renderPublicadores(); finishSave(card);};
       card.querySelector('.btn-locate').onclick=()=>focusItem(p);
       card.querySelector('.btn-remove').onclick=()=>{if(!confirm('Remover publicador?')) return; const idx=publicadoresData.indexOf(p); if(idx>-1) publicadoresData.splice(idx,1); renderPublicadores(); renderList();};
