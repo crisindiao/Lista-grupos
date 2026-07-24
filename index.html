@@ -777,6 +777,15 @@ function showMoreMenu() {
     return value;
   }
 
+  // Firestore não aceita arrays aninhados (array dentro de array), e qd.coords é [[lat,lng],...].
+  // Convertemos só na fronteira com o Firestore, mantendo localStorage/export como estavam.
+  function coordsToFirestore(coords) {
+    return (coords || []).map(p => Array.isArray(p) ? { lat: p[0], lng: p[1] } : p);
+  }
+  function coordsFromFirestore(coords) {
+    return (coords || []).map(p => Array.isArray(p) ? p : [p.lat, p.lng]);
+  }
+
   // Salva no Firestore
   async function saveState() {
     // Também salva localmente como cache
@@ -788,7 +797,10 @@ function showMoreMenu() {
     // Salva no Firestore (só admin pode, mas chamamos sempre — regras do Firestore bloqueiam se não for admin)
     if (!currentUser) return { ok: false, reason: 'no-user' };
     try {
+      await migrateBase64Photos();
       const payload = JSON.parse(JSON.stringify({ saidasData, comerciosData, condominiosData, publicadoresData, quadrasData, savedAt: new Date().toISOString() }, jsonReplacer));
+      // Corrige arrays aninhados em quadrasData.coords (não suportado pelo Firestore)
+      payload.quadrasData = (payload.quadrasData || []).map(qd => ({ ...qd, coords: coordsToFirestore(qd.coords) }));
       const sizeBytes = new Blob([JSON.stringify(payload)]).size;
       if (sizeBytes > 1000000) {
         console.error('Payload maior que o limite do Firestore (1MB):', sizeBytes, 'bytes');
@@ -823,6 +835,9 @@ function showMoreMenu() {
       const snap = await getDoc(doc(db, "territorio", "dados"));
       if (snap.exists()) {
         const saved = snap.data();
+        if (Array.isArray(saved.quadrasData)) {
+          saved.quadrasData = saved.quadrasData.map(qd => ({ ...qd, coords: coordsFromFirestore(qd.coords) }));
+        }
         applyLoadedData(saved);
         // Atualiza cache local
         localStorage.setItem(DATA_STORAGE, JSON.stringify(saved));
@@ -870,6 +885,57 @@ async function reverseGeocode(lat, lng) {
 loadGeoCache();
 
 // ── FOTOS ──
+// Cloudinary (upload de fotos e cartões de território)
+const CLOUDINARY_CLOUD_NAME = 'jrmiaduy';
+const CLOUDINARY_UPLOAD_PRESET = 's5eebunh';
+async function uploadToCloudinary(file) {
+  const url = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`;
+  const fd = new FormData();
+  fd.append('file', file);
+  fd.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+  const res = await fetch(url, { method: 'POST', body: fd });
+  if (!res.ok) throw new Error('Falha no upload');
+  const data = await res.json();
+  return data.secure_url;
+}
+function dataURLtoBlob(dataurl) {
+  const arr = dataurl.split(','); const mimeMatch = arr[0].match(/:(.*?);/);
+  const mime = mimeMatch ? mimeMatch[1] : 'image/jpeg';
+  const bstr = atob(arr[1]); let n = bstr.length; const u8arr = new Uint8Array(n);
+  while (n--) { u8arr[n] = bstr.charCodeAt(n); }
+  return new Blob([u8arr], { type: mime });
+}
+// Converte fotos antigas salvas em base64 (backups importados) para links do Cloudinary,
+// evitando estourar o limite de 1MB por documento do Firestore.
+async function migrateBase64Photos() {
+  const allArrays = [saidasData, comerciosData, condominiosData, publicadoresData];
+  let changed = false;
+  for (const arr of allArrays) {
+    for (const item of arr) {
+      if (item.foto && typeof item.foto === 'string' && item.foto.startsWith('data:image')) {
+        try {
+          const blob = dataURLtoBlob(item.foto);
+          const url = await uploadToCloudinary(blob);
+          item.foto = url;
+          changed = true;
+        } catch (e) { console.error('Falha ao migrar foto para Cloudinary:', e); }
+      }
+    }
+  }
+  if (typeof quadrasData !== 'undefined') {
+    for (const qd of quadrasData) {
+      if (qd.cartaoUrl && typeof qd.cartaoUrl === 'string' && qd.cartaoUrl.startsWith('data:image')) {
+        try {
+          const blob = dataURLtoBlob(qd.cartaoUrl);
+          const url = await uploadToCloudinary(blob);
+          qd.cartaoUrl = url;
+          changed = true;
+        } catch (e) { console.error('Falha ao migrar cartão para Cloudinary:', e); }
+      }
+    }
+  }
+  return changed;
+}
 function compressImage(file, maxDim = 640, quality = 0.7) {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -903,8 +969,16 @@ function wirePhotoBlock(card, item, rerenderFn) {
   if (input) input.onchange = async () => {
     const file = input.files[0]; if (!file) return;
     showSnack('📷 Processando foto...');
-    try { item.foto = await compressImage(file); saveState(); rerenderFn(); renderList(); showSnack('✓ Foto salva'); }
-    catch (e) { showSnack('❌ Não foi possível salvar a foto'); }
+    try {
+      const resizedDataUrl = await compressImage(file);
+      showSnack('☁️ Enviando foto...');
+      const blob = dataURLtoBlob(resizedDataUrl);
+      const url = await uploadToCloudinary(blob);
+      item.foto = url;
+      const result = await saveState();
+      rerenderFn(); renderList();
+      showSnack(result && result.ok ? '✓ Foto salva' : '⚠️ Foto salva aqui, mas não sincronizou com o servidor');
+    } catch (e) { showSnack('❌ Não foi possível salvar a foto'); }
   };
   const rm = card.querySelector('.btn-photo-remove');
   if (rm) rm.onclick = () => { delete item.foto; saveState(); rerenderFn(); renderList(); showSnack('🗑 Foto removida'); };
@@ -1034,20 +1108,6 @@ document.getElementById('imgLightbox').onclick = (e) => { if (e.target.id === 'i
   }, { passive: false });
   img.addEventListener('touchend', () => { dragging = false; });
 })();
-
-// ── CLOUDINARY (upload do cartão de território) ──
-const CLOUDINARY_CLOUD_NAME = 'jrmiaduy';
-const CLOUDINARY_UPLOAD_PRESET = 's5eebunh';
-async function uploadToCloudinary(file) {
-  const url = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`;
-  const fd = new FormData();
-  fd.append('file', file);
-  fd.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
-  const res = await fetch(url, { method: 'POST', body: fd });
-  if (!res.ok) throw new Error('Falha no upload');
-  const data = await res.json();
-  return data.secure_url;
-}
 
 // ── CARTÃO DE TERRITÓRIO (quadras) ──
 function cartaoBlockHTML(qd) {
