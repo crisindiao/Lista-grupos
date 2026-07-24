@@ -794,8 +794,8 @@ function showMoreMenu() {
       localStorage.setItem(DATA_STORAGE, JSON.stringify(payload, jsonReplacer));
     } catch(e) {}
 
-    // Salva no Firestore (só admin pode, mas chamamos sempre — regras do Firestore bloqueiam se não for admin)
-    if (!currentUser) return { ok: false, reason: 'no-user' };
+    // Só o admin pode escrever no Firestore — visitantes nem tentam (evita erro de permissão na tela deles)
+    if (!currentUser || !isAdmin) return { ok: false, reason: isAdmin ? 'no-user' : 'not-admin' };
     try {
       await migrateBase64Photos();
       const payload = JSON.parse(JSON.stringify({ saidasData, comerciosData, condominiosData, publicadoresData, quadrasData, savedAt: new Date().toISOString() }, jsonReplacer));
