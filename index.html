@@ -786,12 +786,23 @@ function showMoreMenu() {
     } catch(e) {}
 
     // Salva no Firestore (só admin pode, mas chamamos sempre — regras do Firestore bloqueiam se não for admin)
-    if (!currentUser) return;
+    if (!currentUser) return { ok: false, reason: 'no-user' };
     try {
       const payload = JSON.parse(JSON.stringify({ saidasData, comerciosData, condominiosData, publicadoresData, quadrasData, savedAt: new Date().toISOString() }, jsonReplacer));
+      const sizeBytes = new Blob([JSON.stringify(payload)]).size;
+      if (sizeBytes > 1000000) {
+        console.error('Payload maior que o limite do Firestore (1MB):', sizeBytes, 'bytes');
+        showSnack('❌ Não sincronizado: dados muito grandes (fotos em base64). Reduza fotos ou remova algumas.');
+        return { ok: false, reason: 'too-large', sizeBytes };
+      }
       const { db, doc, setDoc } = window._fb;
       await setDoc(doc(db, "territorio", "dados"), payload);
-    } catch(e) { console.error('Falha ao salvar no Firebase:', e); }
+      return { ok: true };
+    } catch(e) {
+      console.error('Falha ao salvar no Firebase:', e);
+      showSnack('❌ Falha ao sincronizar com o servidor: ' + (e.message || 'erro desconhecido'));
+      return { ok: false, reason: 'error', error: e };
+    }
   }
 
   // Carrega do Firestore (com fallback para localStorage)
@@ -1605,14 +1616,19 @@ function exportData() {
 function importData(event) {
   if (!isAdmin) { showSnack('❌ Apenas o administrador pode importar dados'); return; }
   const file=event.target.files[0]; if (!file) return;
-  const reader=new FileReader(); reader.onload=()=>{
+  const reader=new FileReader(); reader.onload=async ()=>{
     try {
       const saved=JSON.parse(reader.result);
       if (!confirm('Importar vai substituir todos os dados atuais. Continuar?')) return;
       applyLoadedData(saved);
       renderGrupos();renderComercios();renderCondominios();renderPublicadores();renderQuadras();updateLegend();renderList();
-      saveState();
-      showSnack('✓ Dados importados com sucesso');
+      showSnack('⏳ Sincronizando com o servidor...');
+      const result = await saveState();
+      if (result && result.ok) {
+        showSnack('✓ Dados importados e sincronizados com o servidor');
+      } else {
+        showSnack('⚠️ Dados importados aqui, mas NÃO sincronizaram com o servidor — outros usuários não verão essas mudanças ainda.');
+      }
     } catch(e) { showSnack('❌ Arquivo inválido'); }
   };
   reader.readAsText(file); event.target.value='';
