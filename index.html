@@ -588,6 +588,10 @@ body.viewer-mode #btnResetCobertura{display:none!important;}
       <div class="resumo-val orange" id="home-stat-total">0</div>
       <div class="resumo-lbl">Total Geral</div>
     </div>
+    <div class="resumo-card" onclick="goToTab('condominios')">
+      <div class="resumo-val" id="home-stat-cartas">0</div>
+      <div class="resumo-lbl">📇 Cartas</div>
+    </div>
   </div>
 
   <!-- Cobertura de Território -->
@@ -1200,6 +1204,12 @@ function wireCartaoBlock(card, qd, rerenderFn) {
 }
 
 // ── CONTROLE DE CARTAS (condomínios) ──
+function totalCartasGeral() {
+  return condominiosData.reduce((s,c)=> s + ((c.cartas||[]).reduce((s2,r)=> s2 + (r.qtd||0), 0)), 0);
+}
+function totalCartasCondo(c) {
+  return (c.cartas||[]).reduce((s,r)=> s + (r.qtd||0), 0);
+}
 function cartasListHTML(c) {
   const arr = c.cartas || [];
   if (!arr.length) return '<div class="cartas-empty">Nenhum registro ainda</div>';
@@ -1209,7 +1219,7 @@ function cartasListHTML(c) {
   }).join('');
 }
 function cartasBlockHTML(c) {
-  const total = (c.cartas || []).reduce((s,r)=> s + (r.qtd||0), 0);
+  const total = totalCartasCondo(c);
   const today = new Date().toISOString().slice(0,10);
   return `<div class="card-label">📇 Controle de cartas${total ? `<span class="cartas-total">${total} no total</span>` : ''}</div><div class="cartas-list" data-cartas-list>${cartasListHTML(c)}</div><div class="card-row cartas-add-row"><input type="date" class="cartas-input-data" value="${today}"><input type="number" min="1" class="cartas-input-qtd" placeholder="Qtd" value="1"><button type="button" class="btn-action btn-cartas-add">＋ Add</button></div>`;
 }
@@ -1241,7 +1251,7 @@ function wireCartasBlock(card, c, rerenderFn) {
 const map = L.map('map', { zoomControl: true, tap: true });
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(map);
 const territoryPoly = L.polygon(territoryCoords, { color: '#d93025', weight: 3, fillColor: '#d93025', fillOpacity: 0.07, dashArray: '10,6' }).addTo(map);
-map.fitBounds(territoryPoly.getBounds(), { padding: [20, 20] });
+let mapFitted = false; // evita fitBounds enquanto o #map ainda está com display:none (tamanho 0x0)
 
 let editMode = false;
 let activeTab = 'grupos';
@@ -1655,7 +1665,10 @@ function setViewMode(mode) {
     document.getElementById('legendBox').style.display = 'block';
     document.querySelector('.locate-fab').style.display = 'flex';
     if (editMode) document.getElementById('fabBtn').style.display = 'flex';
-    setTimeout(()=>map.invalidateSize(),50);
+    setTimeout(()=>{
+      map.invalidateSize();
+      if (!mapFitted) { map.fitBounds(territoryPoly.getBounds(), { padding: [20, 20] }); mapFitted = true; }
+    }, 50);
   } else if (mode==='lista') {
     document.getElementById('listView').classList.add('show');
     stopDrawing(); document.getElementById('drawToolbar').classList.remove('show'); hideHint();
@@ -1692,6 +1705,7 @@ function renderHomeStats() {
   document.getElementById('home-stat-quadras').textContent = quadrasData.length;
   const total = saidasData.length + comerciosData.length + condominiosData.length + publicadoresData.length + quadrasData.length;
   document.getElementById('home-stat-total').textContent = total;
+  document.getElementById('home-stat-cartas').textContent = totalCartasGeral();
 
   const feitas = quadrasData.filter(qd=>qd.coberta).length;
   const pendentes = quadrasData.length - feitas;
@@ -1895,6 +1909,11 @@ function renderList() {
   if (activeTab==='condominios') {
     const items=condominiosData.filter(c=>!q||(c.nome+' '+c.endereco).toLowerCase().includes(q));
     if (!items.length) { box.innerHTML='<div class="empty-msg"><strong>🏢</strong>Nenhum condomínio encontrado</div>'; return; }
+    const totalGeral = totalCartasGeral();
+    const comCartas = condominiosData.map(c=>({c,total:totalCartasCondo(c)})).filter(x=>x.total>0).sort((a,b)=>b.total-a.total);
+    const resumo=document.createElement('div'); resumo.className='card'; resumo.style.borderLeftColor='var(--purple)';
+    resumo.innerHTML = `<div class="card-header"><div class="card-avatar" style="background:#5b2c8320"><span style="font-size:18px">📇</span></div><div><div class="card-name">Cartas — Resumo geral</div><div class="card-sub">${totalGeral} carta${totalGeral==1?'':'s'} no total, em ${comCartas.length} condomínio${comCartas.length==1?'':'s'}</div></div></div>${comCartas.length?`<div class="cartas-list">${comCartas.map(x=>`<div class="cartas-item"><div class="cartas-item-info"><span>🏢 ${x.c.nome}</span></div><span class="cartas-item-qtd">${x.total}</span></div>`).join('')}</div>`:'<div class="cartas-empty">Nenhuma carta registrada ainda</div>'}`;
+    box.appendChild(resumo);
     items.forEach(c=>{
       const card=document.createElement('div'); card.className='card'; card.style.borderLeftColor=c.cor||'#364fc7';
       card.innerHTML=`<div class="card-header"><div class="card-avatar" style="background:#364fc720">${avatarHTML(c,'🏢')}</div><div><div class="card-name">${c.nome}</div><div class="card-sub">${c.endereco}</div></div></div>${photoBlockHTML(c)}<div class="card-label">Nome</div><div class="card-row"><input type="text" data-f="nome" value="${c.nome}"></div><div class="card-label">Endereço</div><div class="card-row"><input type="text" data-f="endereco" value="${c.endereco}"></div><div class="geo-status" data-geo-status></div>${cartasBlockHTML(c)}<div class="card-actions"><button class="btn-action btn-save-card" disabled>💾 Salvar</button><button class="btn-action btn-locate">🗺 Ver</button><button class="btn-action btn-remove">🗑</button></div>`;
