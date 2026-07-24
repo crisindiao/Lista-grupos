@@ -516,6 +516,28 @@ body.viewer-mode .btn-photo { display: none !important; }
 body.viewer-mode .btn-photo-remove { display: none !important; }
 body.viewer-mode #nav-exportar { display: none !important; }
 body.viewer-mode #nav-importar { display: none !important; }
+body.viewer-mode .btn-cartao-upload { display: none !important; }
+body.viewer-mode .btn-cartao-remove { display: none !important; }
+
+/* ── CARTÃO DE TERRITÓRIO ── */
+.cartao-row { display: flex; align-items: center; gap: 10px; margin-bottom: 2px; }
+.cartao-thumb { width: 64px; height: 64px; border-radius: 10px; object-fit: cover; border: 1px solid var(--md-outline); flex-shrink: 0; cursor: pointer; }
+.cartao-placeholder { width: 64px; height: 64px; border-radius: 10px; background: var(--md-surface-variant); display: flex; align-items: center; justify-content: center; font-size: 22px; color: var(--md-on-surface-variant); flex-shrink: 0; border: 1.5px dashed var(--md-outline); }
+.cartao-actions { display: flex; flex-direction: column; gap: 6px; flex: 1; }
+.btn-cartao-uploading { opacity: 0.6; pointer-events: none; }
+
+/* ── LIGHTBOX (visualizar cartão em tela cheia) ── */
+#imgLightbox {
+  position: fixed; inset: 0; z-index: 10000; background: rgba(0,0,0,0.88);
+  display: none; align-items: center; justify-content: center; padding: 24px;
+}
+#imgLightbox.show { display: flex; }
+#imgLightbox img { max-width: 100%; max-height: 100%; border-radius: 8px; box-shadow: var(--md-shadow-3); }
+#imgLightbox .lightbox-close {
+  position: absolute; top: 16px; right: 16px; width: 44px; height: 44px; border-radius: 50%;
+  background: rgba(255,255,255,0.15); border: none; color: #fff; font-size: 22px;
+  display: flex; align-items: center; justify-content: center;
+}
 </style>
 </head>
 <body>
@@ -532,6 +554,12 @@ body.viewer-mode #nav-importar { display: none !important; }
     </button>
   </div>
   <div class="auth-loading" id="authLoading" style="display:none">Verificando...</div>
+</div>
+
+<!-- LIGHTBOX (visualizar cartão de território em tela cheia) -->
+<div id="imgLightbox">
+  <button type="button" class="lightbox-close" id="lightboxClose">✕</button>
+  <img id="lightboxImg" src="" alt="Cartão de território">
 </div>
 
 <!-- TOP APP BAR -->
@@ -872,6 +900,68 @@ function avatarHTML(item, emoji, bg) {
   return item.foto ? `<img src="${item.foto}">` : `<span style="font-size:18px">${emoji}</span>`;
 }
 
+// ── LIGHTBOX (visualizar imagem em tela cheia) ──
+function openLightbox(url) {
+  const box = document.getElementById('imgLightbox');
+  document.getElementById('lightboxImg').src = url;
+  box.classList.add('show');
+}
+function closeLightbox() {
+  document.getElementById('imgLightbox').classList.remove('show');
+  document.getElementById('lightboxImg').src = '';
+}
+document.getElementById('lightboxClose').onclick = closeLightbox;
+document.getElementById('imgLightbox').onclick = (e) => { if (e.target.id === 'imgLightbox') closeLightbox(); };
+
+// ── CLOUDINARY (upload do cartão de território) ──
+const CLOUDINARY_CLOUD_NAME = 'jrmiaduy';
+const CLOUDINARY_UPLOAD_PRESET = 's5eebunh';
+async function uploadToCloudinary(file) {
+  const url = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`;
+  const fd = new FormData();
+  fd.append('file', file);
+  fd.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+  const res = await fetch(url, { method: 'POST', body: fd });
+  if (!res.ok) throw new Error('Falha no upload');
+  const data = await res.json();
+  return data.secure_url;
+}
+
+// ── CARTÃO DE TERRITÓRIO (quadras) ──
+function cartaoBlockHTML(qd) {
+  const url = qd.cartaoUrl;
+  return `<div class="card-label">📋 Cartão de território</div><div class="cartao-row">${url ? `<img src="${url}" class="cartao-thumb" data-cartao-view>` : `<div class="cartao-placeholder">📋</div>`}<div class="cartao-actions">${url ? '<button type="button" class="btn-action" data-cartao-view>👁️ Ver cartão</button>' : ''}<label class="btn-action btn-cartao-upload">📋 ${url ? 'Trocar cartão' : 'Enviar cartão'}<input type="file" accept="image/*" class="cartao-input" hidden></label>${url ? '<button type="button" class="btn-action btn-cartao-remove">🗑 Remover cartão</button>' : ''}</div></div>`;
+}
+function wireCartaoBlock(card, qd, rerenderFn) {
+  const input = card.querySelector('.cartao-input');
+  if (input) input.onchange = async () => {
+    const file = input.files[0]; if (!file) return;
+    if (!isAdmin) { showSnack('❌ Apenas o administrador pode enviar o cartão'); return; }
+    const label = card.querySelector('.btn-cartao-upload');
+    if (label) label.classList.add('btn-cartao-uploading');
+    showSnack('📋 Enviando cartão...');
+    try {
+      const secureUrl = await uploadToCloudinary(file);
+      qd.cartaoUrl = secureUrl;
+      saveState(); rerenderFn(); renderList();
+      showSnack('✓ Cartão salvo');
+    } catch (e) {
+      showSnack('❌ Não foi possível enviar o cartão');
+      if (label) label.classList.remove('btn-cartao-uploading');
+    }
+  };
+  const rm = card.querySelector('.btn-cartao-remove');
+  if (rm) rm.onclick = () => {
+    if (!isAdmin) { showSnack('❌ Apenas o administrador pode remover o cartão'); return; }
+    if (!confirm('Remover a foto do cartão de território?')) return;
+    delete qd.cartaoUrl; saveState(); rerenderFn(); renderList();
+    showSnack('🗑 Cartão removido');
+  };
+  card.querySelectorAll('[data-cartao-view]').forEach(el => {
+    el.onclick = () => { if (qd.cartaoUrl) openLightbox(qd.cartaoUrl); };
+  });
+}
+
 // ── CONTROLE DE CARTAS (condomínios) ──
 function cartasListHTML(c) {
   const arr = c.cartas || [];
@@ -1038,7 +1128,7 @@ function renderQuadras() {
     const borderOpacity = isFiltered?(match?1:0.25):0.9;
     const weight = (match||!isFiltered)?baseWeight:Math.max(1,baseWeight-2);
     const poly = L.polygon(qd.coords, { color:cor, weight, fillColor:cor, fillOpacity, opacity:borderOpacity });
-    poly.bindPopup(`<b>Mapa ${qd.mapa}</b>${qd.nome?'<br>'+qd.nome:''}${qd.grupo?`<br>👥 Grupo responsável: <b>${qd.grupo}</b>`:''}<br><small>${qd.coords.length} pontos</small>`+(editMode?`<br><button onclick="deleteQuadra(${idx})" style="margin-top:6px;background:#d93025;color:white;border:none;border-radius:8px;padding:7px 12px;font-size:0.8rem;font-weight:700;cursor:pointer">🗑 Excluir</button>`:''));
+    poly.bindPopup(`<b>Mapa ${qd.mapa}</b>${qd.nome?'<br>'+qd.nome:''}${qd.grupo?`<br>👥 Grupo responsável: <b>${qd.grupo}</b>`:''}<br><small>${qd.coords.length} pontos</small><br><button onclick="showQuadraCartao(${idx})" style="margin-top:6px;background:var(--md-primary);color:white;border:none;border-radius:8px;padding:7px 12px;font-size:0.8rem;font-weight:700;cursor:pointer">📋 Cartão</button>`+(editMode?`<br><button onclick="deleteQuadra(${idx})" style="margin-top:6px;background:#d93025;color:white;border:none;border-radius:8px;padding:7px 12px;font-size:0.8rem;font-weight:700;cursor:pointer">🗑 Excluir</button>`:''));
     poly.addTo(layerGroups.quadras);
     const center = poly.getBounds().getCenter();
     L.marker(center, { icon: L.divIcon({ className:'', html:`<div class="quadra-label" style="border:2px solid ${cor}">${qd.mapa}</div>`, iconSize:[0,0] }), interactive:false }).addTo(layerGroups.quadras);
@@ -1046,6 +1136,16 @@ function renderQuadras() {
   });
   document.getElementById('cnt-quadras').textContent = quadrasData.length;
   document.getElementById('stat-quadras').textContent = quadrasData.length; saveState();
+}
+function showQuadraCartao(idx) {
+  const qd = quadrasData[idx];
+  if (!qd) return;
+  if (qd.cartaoUrl) { openLightbox(qd.cartaoUrl); return; }
+  if (isAdmin) {
+    showSnack('📋 Sem cartão ainda — abra a lista de Quadras para enviar a foto');
+  } else {
+    showSnack('📋 Esta quadra ainda não tem cartão de território cadastrado');
+  }
 }
 function deleteQuadra(idx) {
   if (!confirm('Remover esta quadra?')) return;
@@ -1368,8 +1468,9 @@ function renderList() {
     items.forEach(qd=>{
       const cor=qd.cor||getColorForMapa(qd.mapa); const weight=qd.weight||3;
       const card=document.createElement('div'); card.className='card'; card.style.borderLeftColor=cor;
-      card.innerHTML=`<div class="card-header"><div class="card-avatar" style="background:${cor}20;border:2px solid ${cor}"><span style="font-size:18px">🧩</span></div><div><div class="card-name">Mapa ${qd.mapa}</div><div class="card-sub">${qd.nome||'Sem nome'} — ${qd.coords.length} pontos${qd.grupo?' — 👥 '+qd.grupo:''}</div></div></div><div class="card-label">Número do mapa</div><div class="card-row"><input type="text" data-f="mapa" value="${qd.mapa}"></div><div class="card-label">Nome/observação</div><div class="card-row"><input type="text" data-f="nome" value="${qd.nome||''}"></div><div class="card-label">Grupo responsável</div><div class="card-row"><select data-f="grupo"><option value="">Sem grupo atribuído</option>${Object.keys(groupColors).map(g=>`<option value="${g}" ${g===qd.grupo?'selected':''}>${g}</option>`).join('')}</select></div><div class="card-label">Cor</div><div class="card-row"><input type="color" data-f="cor" value="${cor}" style="flex:0 0 48px;height:38px;padding:2px;cursor:pointer"><button type="button" class="btn-cor-auto">🎨 Auto</button></div><div class="card-label">Espessura</div><div class="card-row"><input type="number" data-f="weight" min="1" max="12" value="${weight}"></div><div class="card-actions"><button class="btn-action btn-save-card" disabled>💾 Salvar</button><button class="btn-action btn-locate">🗺 Ver</button><button class="btn-action btn-remove">🗑</button></div>`;
+      card.innerHTML=`<div class="card-header"><div class="card-avatar" style="background:${cor}20;border:2px solid ${cor}"><span style="font-size:18px">🧩</span></div><div><div class="card-name">Mapa ${qd.mapa}</div><div class="card-sub">${qd.nome||'Sem nome'} — ${qd.coords.length} pontos${qd.grupo?' — 👥 '+qd.grupo:''}</div></div></div>${cartaoBlockHTML(qd)}<div class="card-label">Número do mapa</div><div class="card-row"><input type="text" data-f="mapa" value="${qd.mapa}"></div><div class="card-label">Nome/observação</div><div class="card-row"><input type="text" data-f="nome" value="${qd.nome||''}"></div><div class="card-label">Grupo responsável</div><div class="card-row"><select data-f="grupo"><option value="">Sem grupo atribuído</option>${Object.keys(groupColors).map(g=>`<option value="${g}" ${g===qd.grupo?'selected':''}>${g}</option>`).join('')}</select></div><div class="card-label">Cor</div><div class="card-row"><input type="color" data-f="cor" value="${cor}" style="flex:0 0 48px;height:38px;padding:2px;cursor:pointer"><button type="button" class="btn-cor-auto">🎨 Auto</button></div><div class="card-label">Espessura</div><div class="card-row"><input type="number" data-f="weight" min="1" max="12" value="${weight}"></div><div class="card-actions"><button class="btn-action btn-save-card" disabled>💾 Salvar</button><button class="btn-action btn-locate">🗺 Ver</button><button class="btn-action btn-remove">🗑</button></div>`;
       wireDirty(card);
+      wireCartaoBlock(card,qd,renderQuadras);
       card.querySelector('.btn-cor-auto').onclick=()=>{card.querySelector('[data-f="cor"]').value=getColorForMapa(card.querySelector('[data-f="mapa"]').value.trim()||qd.mapa); card.classList.add('dirty'); card.querySelector('.btn-save-card').disabled=false;};
       card.querySelector('.btn-save-card').onclick=()=>{qd.mapa=card.querySelector('[data-f="mapa"]').value.trim(); qd.nome=card.querySelector('[data-f="nome"]').value; qd.grupo=card.querySelector('[data-f="grupo"]').value||''; qd.cor=card.querySelector('[data-f="cor"]').value; const w=parseInt(card.querySelector('[data-f="weight"]').value,10); qd.weight=isNaN(w)?3:Math.max(1,Math.min(12,w)); renderQuadras(); renderCatbar(); updateLegend(); finishSave(card);};
       card.querySelector('.btn-locate').onclick=()=>focusItem(qd);
