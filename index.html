@@ -518,6 +518,13 @@ body.viewer-mode #nav-exportar { display: none !important; }
 body.viewer-mode #nav-importar { display: none !important; }
 body.viewer-mode .btn-cartao-upload { display: none !important; }
 body.viewer-mode .btn-cartao-remove { display: none !important; }
+body.viewer-mode .btn-cobertura-toggle { display: none !important; }
+body.viewer-mode #btnResetCobertura { display: none !important; }
+
+/* ── COBERTURA DE TERRITÓRIO ── */
+.cobertura-badge { display: inline-flex; align-items: center; gap: 4px; font-size: 0.74rem; font-weight: 700; border-radius: 8px; padding: 4px 10px; margin-bottom: 8px; width: fit-content; }
+.cobertura-badge.cobertura-feita { background: #e6f4ea; color: #1e8e3e; }
+.cobertura-badge.cobertura-pendente { background: #fce8e6; color: #d93025; }
 
 /* ── CARTÃO DE TERRITÓRIO ── */
 .cartao-row { display: flex; align-items: center; gap: 10px; margin-bottom: 2px; }
@@ -739,6 +746,8 @@ function showMoreMenu() {
   let activeMapaFilter = null;
   let activeQuadraGrupoFilter = null;
   let quadraCatMode = 'mapa';
+  let activeCoberturaFilter = null; // null | 'feita' | 'pendente'
+  const CORES_COBERTURA = { feita: '#1e8e3e', pendente: '#d93025' };
   let drawingQuadra = false;
   let drawPoints = [];
   let drawPreviewLayer = null;
@@ -1303,21 +1312,53 @@ function renderPublicadores() {
 function renderQuadras() {
   layerGroups.quadras.clearLayers();
   quadrasData.forEach((qd, idx) => {
-    const cor = qd.cor || getColorForMapa(qd.mapa); const baseWeight = qd.weight||3;
-    const isFiltered = !!(activeMapaFilter || activeQuadraGrupoFilter);
-    const match = activeMapaFilter ? qd.mapa===activeMapaFilter : (activeQuadraGrupoFilter ? qd.grupo===activeQuadraGrupoFilter : true);
-    const fillOpacity = isFiltered?(match?0.55:0.06):0.32;
-    const borderOpacity = isFiltered?(match?1:0.25):0.9;
-    const weight = (match||!isFiltered)?baseWeight:Math.max(1,baseWeight-2);
+    const baseWeight = qd.weight||3;
+    const isCobertura = quadraCatMode==='cobertura';
+    let cor, isFiltered, match, fillOpacity, borderOpacity, weight;
+    if (isCobertura) {
+      cor = qd.coberta ? CORES_COBERTURA.feita : CORES_COBERTURA.pendente;
+      isFiltered = !!activeCoberturaFilter;
+      match = activeCoberturaFilter ? (activeCoberturaFilter==='feita' ? !!qd.coberta : !qd.coberta) : true;
+      fillOpacity = isFiltered?(match?0.55:0.06):0.4;
+      borderOpacity = isFiltered?(match?1:0.25):1;
+      weight = (match||!isFiltered)?baseWeight:Math.max(1,baseWeight-2);
+    } else {
+      cor = qd.cor || getColorForMapa(qd.mapa);
+      isFiltered = !!(activeMapaFilter || activeQuadraGrupoFilter);
+      match = activeMapaFilter ? qd.mapa===activeMapaFilter : (activeQuadraGrupoFilter ? qd.grupo===activeQuadraGrupoFilter : true);
+      fillOpacity = isFiltered?(match?0.55:0.06):0.32;
+      borderOpacity = isFiltered?(match?1:0.25):0.9;
+      weight = (match||!isFiltered)?baseWeight:Math.max(1,baseWeight-2);
+    }
     const poly = L.polygon(qd.coords, { color:cor, weight, fillColor:cor, fillOpacity, opacity:borderOpacity });
-    poly.bindPopup(`<b>Mapa ${qd.mapa}</b>${qd.nome?'<br>'+qd.nome:''}${qd.grupo?`<br>👥 Grupo responsável: <b>${qd.grupo}</b>`:''}<br><small>${qd.coords.length} pontos</small><br><button onclick="showQuadraCartao(${idx})" style="margin-top:6px;background:var(--md-primary);color:white;border:none;border-radius:8px;padding:7px 12px;font-size:0.8rem;font-weight:700;cursor:pointer">📋 Cartão</button>`+(editMode?`<br><button onclick="deleteQuadra(${idx})" style="margin-top:6px;background:#d93025;color:white;border:none;border-radius:8px;padding:7px 12px;font-size:0.8rem;font-weight:700;cursor:pointer">🗑 Excluir</button>`:''));
+    const coberturaBtn = `<br><button onclick="toggleQuadraCobertura(${idx})" style="margin-top:6px;background:${qd.coberta?'#5f6368':'var(--md-success)'};color:white;border:none;border-radius:8px;padding:7px 12px;font-size:0.8rem;font-weight:700;cursor:pointer">${qd.coberta?'↺ Desfazer baixa':'✓ Dar baixa'}</button>`;
+    poly.bindPopup(`<b>Mapa ${qd.mapa}</b>${qd.nome?'<br>'+qd.nome:''}${qd.grupo?`<br>👥 Grupo responsável: <b>${qd.grupo}</b>`:''}<br><small>${qd.coords.length} pontos</small>${qd.coberta?`<br><small style="color:#1e8e3e">✓ Coberta${qd.coberturaData?' em '+formatarDataBR(qd.coberturaData):''}</small>`:''}<br><button onclick="showQuadraCartao(${idx})" style="margin-top:6px;background:var(--md-primary);color:white;border:none;border-radius:8px;padding:7px 12px;font-size:0.8rem;font-weight:700;cursor:pointer">📋 Cartão</button>`+(isAdmin?coberturaBtn:'')+(editMode?`<br><button onclick="deleteQuadra(${idx})" style="margin-top:6px;background:#d93025;color:white;border:none;border-radius:8px;padding:7px 12px;font-size:0.8rem;font-weight:700;cursor:pointer">🗑 Excluir</button>`:''));
     poly.addTo(layerGroups.quadras);
     const center = poly.getBounds().getCenter();
-    L.marker(center, { icon: L.divIcon({ className:'', html:`<div class="quadra-label" style="border:2px solid ${cor}">${qd.mapa}</div>`, iconSize:[0,0] }), interactive:false }).addTo(layerGroups.quadras);
+    const labelBorder = isCobertura ? cor : cor;
+    L.marker(center, { icon: L.divIcon({ className:'', html:`<div class="quadra-label" style="border:2px solid ${labelBorder}">${isCobertura?(qd.coberta?'✓':qd.mapa):qd.mapa}</div>`, iconSize:[0,0] }), interactive:false }).addTo(layerGroups.quadras);
     qd._layer = poly;
   });
   document.getElementById('cnt-quadras').textContent = quadrasData.length;
   document.getElementById('stat-quadras').textContent = quadrasData.length; saveState();
+}
+function formatarDataBR(iso) {
+  try { const d = new Date(iso); return d.toLocaleDateString('pt-BR'); } catch(e) { return ''; }
+}
+function toggleQuadraCobertura(idx) {
+  if (!isAdmin) { showSnack('❌ Apenas o administrador pode dar baixa nas quadras'); return; }
+  const qd = quadrasData[idx]; if (!qd) return;
+  qd.coberta = !qd.coberta;
+  qd.coberturaData = qd.coberta ? new Date().toISOString() : null;
+  renderQuadras(); renderCatbar(); updateLegend(); renderList();
+  showSnack(qd.coberta ? '✓ Quadra marcada como coberta' : '↺ Baixa desfeita');
+}
+function resetCobertura() {
+  if (!isAdmin) { showSnack('❌ Apenas o administrador pode reiniciar a cobertura'); return; }
+  if (!confirm('Isso vai desmarcar TODAS as quadras como não cobertas, para começar um novo ciclo de território. Continuar?')) return;
+  quadrasData.forEach(qd => { qd.coberta = false; qd.coberturaData = null; });
+  renderQuadras(); renderCatbar(); updateLegend(); renderList();
+  showSnack('🔄 Cobertura reiniciada — novo ciclo iniciado');
 }
 function showQuadraCartao(idx) {
   const qd = quadrasData[idx];
@@ -1429,6 +1470,16 @@ function updateLegend() {
         if (semGrupo) html+=`<div style="${activeQuadraGrupoFilter&&activeQuadraGrupoFilter!=='__sem__'?'opacity:0.3':''}"><span class="dot" style="background:#9aa0a6"></span>Sem grupo</div>`;
       }
       if (activeQuadraGrupoFilter) html+=`<div style="margin-top:4px;font-size:0.68rem;color:#5f6368">Filtro: ${activeQuadraGrupoFilter==='__sem__'?'Sem grupo':activeQuadraGrupoFilter}</div>`;
+    } else if (quadraCatMode==='cobertura') {
+      const total = quadrasData.length;
+      const feitas = quadrasData.filter(qd=>qd.coberta).length;
+      const pct = total ? Math.round((feitas/total)*100) : 0;
+      html = '<span class="legend-title">Cobertura de território</span>';
+      if (!total) html += '<div style="font-size:0.7rem;color:#9aa0a6;margin-top:4px">Nenhuma quadra ainda</div>';
+      else {
+        html += `<div style="margin:4px 0 6px 0"><div style="background:#e0d5eb;border-radius:6px;height:8px;overflow:hidden;width:140px"><div style="background:${CORES_COBERTURA.feita};height:100%;width:${pct}%"></div></div><div style="font-size:0.7rem;color:#5f6368;margin-top:3px">${feitas} de ${total} quadras (${pct}%)</div></div>`;
+        html += `<div><span class="dot" style="background:${CORES_COBERTURA.feita}"></span>Coberta</div><div><span class="dot" style="background:${CORES_COBERTURA.pendente}"></span>Pendente</div>`;
+      }
     } else {
       html='<span class="legend-title">Quadras por mapa</span>';
       const nums={}; quadrasData.forEach(qd=>{if(!nums[qd.mapa]) nums[qd.mapa]=qd.cor||getColorForMapa(qd.mapa);});
@@ -1494,12 +1545,18 @@ map.on('locationerror', e => showSnack('❌ ' + e.message));
 function renderCatbar() {
   const box = document.getElementById('catbarInner'); if (!box) return;
   if (activeTab==='quadras') {
-    let html = `<button class="cat-chip mode-chip${quadraCatMode==='mapa'?' active':''}" data-mode="mapa">🗺️ Mapas</button><button class="cat-chip mode-chip${quadraCatMode==='grupo'?' active':''}" data-mode="grupo">👥 Grupos</button><div class="catbar-divider"></div>`;
+    let html = `<button class="cat-chip mode-chip${quadraCatMode==='mapa'?' active':''}" data-mode="mapa">🗺️ Mapas</button><button class="cat-chip mode-chip${quadraCatMode==='grupo'?' active':''}" data-mode="grupo">👥 Grupos</button><button class="cat-chip mode-chip${quadraCatMode==='cobertura'?' active':''}" data-mode="cobertura">🎯 Cobertura</button><div class="catbar-divider"></div>`;
     if (quadraCatMode==='grupo') {
       html += `<button class="cat-chip${activeQuadraGrupoFilter?'':' active'}" data-grp="">Todos <span class="count">${quadrasData.length}</span></button>`;
       Object.keys(groupColors).forEach(g=>{const count=quadrasData.filter(qd=>qd.grupo===g).length; html+=`<button class="cat-chip${activeQuadraGrupoFilter===g?' active':''}" data-grp="${g}"><span class="dot" style="background:${groupColors[g]};width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:4px"></span>${g} <span class="count">${count}</span></button>`;});
       const semGrupo = quadrasData.filter(qd=>!qd.grupo).length;
       if (semGrupo) html += `<button class="cat-chip${activeQuadraGrupoFilter==='__sem__'?' active':''}" data-grp="__sem__">Sem grupo <span class="count">${semGrupo}</span></button>`;
+    } else if (quadraCatMode==='cobertura') {
+      const feitas = quadrasData.filter(qd=>qd.coberta).length;
+      html += `<button class="cat-chip${activeCoberturaFilter?'':' active'}" data-cob="">Todos <span class="count">${quadrasData.length}</span></button>`;
+      html += `<button class="cat-chip${activeCoberturaFilter==='feita'?' active':''}" data-cob="feita"><span class="dot" style="background:${CORES_COBERTURA.feita};width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:4px"></span>Feitas <span class="count">${feitas}</span></button>`;
+      html += `<button class="cat-chip${activeCoberturaFilter==='pendente'?' active':''}" data-cob="pendente"><span class="dot" style="background:${CORES_COBERTURA.pendente};width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:4px"></span>Pendentes <span class="count">${quadrasData.length-feitas}</span></button>`;
+      if (isAdmin) html += `<div class="catbar-divider"></div><button class="cat-chip" id="btnResetCobertura" style="color:var(--md-error)">🔄 Reiniciar ciclo</button>`;
     } else {
       const nums={}; quadrasData.forEach(qd=>{if(!nums[qd.mapa]) nums[qd.mapa]=qd.cor||getColorForMapa(qd.mapa);});
       const sorted=Object.keys(nums).sort((a,b)=>{const na=parseInt(a,10),nb=parseInt(b,10); if(!isNaN(na)&&!isNaN(nb)&&na!==nb) return na-nb; return a.localeCompare(b,'pt-BR');});
@@ -1507,9 +1564,11 @@ function renderCatbar() {
       sorted.forEach(n=>{const count=quadrasData.filter(qd=>qd.mapa===n).length; html+=`<button class="cat-chip${activeMapaFilter===n?' active':''}" data-mapa="${n}"><span class="dot" style="background:${nums[n]};width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:4px"></span>Mapa ${n} <span class="count">${count}</span></button>`;});
     }
     box.innerHTML=html;
-    box.querySelectorAll('.mode-chip').forEach(btn=>{btn.onclick=()=>{quadraCatMode=btn.dataset.mode; activeMapaFilter=null; activeQuadraGrupoFilter=null; renderCatbar(); renderQuadras(); updateLegend(); if(viewMode==='lista') renderList();};});
+    box.querySelectorAll('.mode-chip').forEach(btn=>{btn.onclick=()=>{quadraCatMode=btn.dataset.mode; activeMapaFilter=null; activeQuadraGrupoFilter=null; activeCoberturaFilter=null; renderCatbar(); renderQuadras(); updateLegend(); if(viewMode==='lista') renderList();};});
     box.querySelectorAll('.cat-chip[data-mapa]').forEach(btn=>{btn.onclick=()=>{activeMapaFilter=btn.dataset.mapa||null; renderCatbar(); renderQuadras(); updateLegend(); if(viewMode==='lista') renderList(); if(activeMapaFilter){const m=quadrasData.filter(qd=>qd.mapa===activeMapaFilter&&qd._layer); if(m.length){const g=L.featureGroup(m.map(qd=>qd._layer)); map.fitBounds(g.getBounds(),{padding:[30,30]});}}};});
     box.querySelectorAll('.cat-chip[data-grp]').forEach(btn=>{btn.onclick=()=>{activeQuadraGrupoFilter=btn.dataset.grp||null; renderCatbar(); renderQuadras(); updateLegend(); if(viewMode==='lista') renderList(); if(activeQuadraGrupoFilter){const m=quadrasData.filter(qd=>(activeQuadraGrupoFilter==='__sem__'?!qd.grupo:qd.grupo===activeQuadraGrupoFilter)&&qd._layer); if(m.length){const g=L.featureGroup(m.map(qd=>qd._layer)); map.fitBounds(g.getBounds(),{padding:[30,30]});}}};});
+    box.querySelectorAll('.cat-chip[data-cob]').forEach(btn=>{btn.onclick=()=>{activeCoberturaFilter=btn.dataset.cob||null; renderCatbar(); renderQuadras(); updateLegend(); if(viewMode==='lista') renderList();};});
+    const resetBtn = document.getElementById('btnResetCobertura'); if (resetBtn) resetBtn.onclick = resetCobertura;
     return;
   }
   if (activeTab==='publicadores') {
@@ -1644,19 +1703,25 @@ function renderList() {
   }
 
   if (activeTab==='quadras') {
-    const base=activeMapaFilter?quadrasData.filter(qd=>qd.mapa===activeMapaFilter):(activeQuadraGrupoFilter?quadrasData.filter(qd=>activeQuadraGrupoFilter==='__sem__'?!qd.grupo:qd.grupo===activeQuadraGrupoFilter):quadrasData);
+    let base=quadrasData;
+    if (activeMapaFilter) base=base.filter(qd=>qd.mapa===activeMapaFilter);
+    else if (activeQuadraGrupoFilter) base=base.filter(qd=>activeQuadraGrupoFilter==='__sem__'?!qd.grupo:qd.grupo===activeQuadraGrupoFilter);
+    else if (activeCoberturaFilter) base=base.filter(qd=>activeCoberturaFilter==='feita'?!!qd.coberta:!qd.coberta);
     const items=base.filter(qd=>!q||('mapa '+qd.mapa+' '+(qd.nome||'')+' '+(qd.grupo||'')).toLowerCase().includes(q));
     if (!items.length) { box.innerHTML='<div class="empty-msg"><strong>🧩</strong>Nenhuma quadra. Ative edição e toque em ＋ no mapa.</div>'; return; }
     items.forEach(qd=>{
       const cor=qd.cor||getColorForMapa(qd.mapa); const weight=qd.weight||3;
       const card=document.createElement('div'); card.className='card'; card.style.borderLeftColor=cor;
-      card.innerHTML=`<div class="card-header"><div class="card-avatar" style="background:${cor}20;border:2px solid ${cor}"><span style="font-size:18px">🧩</span></div><div><div class="card-name">Mapa ${qd.mapa}</div><div class="card-sub">${qd.nome||'Sem nome'} — ${qd.coords.length} pontos${qd.grupo?' — 👥 '+qd.grupo:''}</div></div></div>${cartaoBlockHTML(qd)}<div class="card-label">Número do mapa</div><div class="card-row"><input type="text" data-f="mapa" value="${qd.mapa}"></div><div class="card-label">Nome/observação</div><div class="card-row"><input type="text" data-f="nome" value="${qd.nome||''}"></div><div class="card-label">Grupo responsável</div><div class="card-row"><select data-f="grupo"><option value="">Sem grupo atribuído</option>${Object.keys(groupColors).map(g=>`<option value="${g}" ${g===qd.grupo?'selected':''}>${g}</option>`).join('')}</select></div><div class="card-label">Cor</div><div class="card-row"><input type="color" data-f="cor" value="${cor}" style="flex:0 0 48px;height:38px;padding:2px;cursor:pointer"><button type="button" class="btn-cor-auto">🎨 Auto</button></div><div class="card-label">Espessura</div><div class="card-row"><input type="number" data-f="weight" min="1" max="12" value="${weight}"></div><div class="card-actions"><button class="btn-action btn-save-card" disabled>💾 Salvar</button><button class="btn-action btn-locate">🗺 Ver</button><button class="btn-action btn-remove">🗑</button></div>`;
+      const coberturaBadge = qd.coberta ? `<div class="cobertura-badge cobertura-feita">✓ Coberta${qd.coberturaData?' — '+formatarDataBR(qd.coberturaData):''}</div>` : `<div class="cobertura-badge cobertura-pendente">○ Pendente</div>`;
+      const idxQd = quadrasData.indexOf(qd);
+      card.innerHTML=`<div class="card-header"><div class="card-avatar" style="background:${cor}20;border:2px solid ${cor}"><span style="font-size:18px">🧩</span></div><div><div class="card-name">Mapa ${qd.mapa}</div><div class="card-sub">${qd.nome||'Sem nome'} — ${qd.coords.length} pontos${qd.grupo?' — 👥 '+qd.grupo:''}</div></div></div>${coberturaBadge}${cartaoBlockHTML(qd)}<div class="card-label">Número do mapa</div><div class="card-row"><input type="text" data-f="mapa" value="${qd.mapa}"></div><div class="card-label">Nome/observação</div><div class="card-row"><input type="text" data-f="nome" value="${qd.nome||''}"></div><div class="card-label">Grupo responsável</div><div class="card-row"><select data-f="grupo"><option value="">Sem grupo atribuído</option>${Object.keys(groupColors).map(g=>`<option value="${g}" ${g===qd.grupo?'selected':''}>${g}</option>`).join('')}</select></div><div class="card-label">Cor</div><div class="card-row"><input type="color" data-f="cor" value="${cor}" style="flex:0 0 48px;height:38px;padding:2px;cursor:pointer"><button type="button" class="btn-cor-auto">🎨 Auto</button></div><div class="card-label">Espessura</div><div class="card-row"><input type="number" data-f="weight" min="1" max="12" value="${weight}"></div><div class="card-actions"><button class="btn-action btn-save-card" disabled>💾 Salvar</button><button class="btn-action btn-locate">🗺 Ver</button><button class="btn-action btn-remove">🗑</button></div><div class="card-actions"><button class="btn-action btn-cobertura-toggle" style="background:${qd.coberta?'var(--md-surface-variant)':'#e6f4ea'};color:${qd.coberta?'#5f6368':'#1e8e3e'}">${qd.coberta?'↺ Desfazer baixa':'✓ Dar baixa'}</button></div>`;
       wireDirty(card);
       wireCartaoBlock(card,qd,renderQuadras);
       card.querySelector('.btn-cor-auto').onclick=()=>{card.querySelector('[data-f="cor"]').value=getColorForMapa(card.querySelector('[data-f="mapa"]').value.trim()||qd.mapa); card.classList.add('dirty'); card.querySelector('.btn-save-card').disabled=false;};
       card.querySelector('.btn-save-card').onclick=()=>{qd.mapa=card.querySelector('[data-f="mapa"]').value.trim(); qd.nome=card.querySelector('[data-f="nome"]').value; qd.grupo=card.querySelector('[data-f="grupo"]').value||''; qd.cor=card.querySelector('[data-f="cor"]').value; const w=parseInt(card.querySelector('[data-f="weight"]').value,10); qd.weight=isNaN(w)?3:Math.max(1,Math.min(12,w)); renderQuadras(); renderCatbar(); updateLegend(); finishSave(card);};
       card.querySelector('.btn-locate').onclick=()=>focusItem(qd);
       card.querySelector('.btn-remove').onclick=()=>{if(!confirm('Remover quadra?')) return; const idx=quadrasData.indexOf(qd); if(idx>-1) quadrasData.splice(idx,1); renderQuadras(); renderList(); renderCatbar(); updateLegend();};
+      card.querySelector('.btn-cobertura-toggle').onclick=()=>toggleQuadraCobertura(idxQd);
       box.appendChild(card);
     });
   }
