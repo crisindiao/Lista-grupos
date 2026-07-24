@@ -512,6 +512,10 @@ body.viewer-mode .card select { pointer-events: none; background: var(--md-surfa
 body.viewer-mode .btn-cartas-add { display: none !important; }
 body.viewer-mode .cartas-item-remove { display: none !important; }
 body.viewer-mode .cartas-add-row { display: none !important; }
+body.viewer-mode .btn-photo { display: none !important; }
+body.viewer-mode .btn-photo-remove { display: none !important; }
+body.viewer-mode #nav-exportar { display: none !important; }
+body.viewer-mode #nav-importar { display: none !important; }
 </style>
 </head>
 <body>
@@ -641,11 +645,11 @@ body.viewer-mode .cartas-add-row { display: none !important; }
     <div class="nav-icon">📋</div>
     Lista
   </button>
-  <button class="nav-item" onclick="exportData()">
+  <button class="nav-item" id="nav-exportar" onclick="exportData()">
     <div class="nav-icon">💾</div>
     Exportar
   </button>
-  <button class="nav-item" onclick="document.getElementById('importFile').click()">
+  <button class="nav-item" id="nav-importar" onclick="document.getElementById('importFile').click()">
     <div class="nav-icon">📂</div>
     Importar
   </button>
