@@ -1246,6 +1246,7 @@ let activeTab = 'grupos';
 let viewMode = 'mapa';
 let activeCategoryFilter = null;
 let activeGroupFilter = null;
+let activeSaidaGrupoFilter = null;
 const layerGroups = { grupos: L.layerGroup().addTo(map), comercios: L.layerGroup(), condominios: L.layerGroup(), publicadores: L.layerGroup(), quadras: L.layerGroup() };
 
 function makeDivIcon(color, letter) {
@@ -1313,14 +1314,15 @@ function editPublicadorPopup(marker, p) {
 // ── RENDER LAYERS ──
 function renderGrupos() {
   layerGroups.grupos.clearLayers();
-  saidasData.forEach(s => {
+  const items = activeSaidaGrupoFilter ? saidasData.filter(s=>s.grupo===activeSaidaGrupoFilter) : saidasData;
+  items.forEach(s => {
     let lat = s.lat, lng = s.lng; if (s.offset) { lat += s.offset[0]; lng += s.offset[1]; }
     const marker = L.marker([lat,lng], { icon: makeDivIcon(s.cor, s.grupo[0]), draggable: editMode });
     marker.bindPopup(editMode ? editSaidaPopup(marker,s) : `${s.foto?`<img src="${s.foto}" class="popup-photo">`:''}<b>Grupo ${s.grupo}</b><br>Saída: ${s.nome}${s.endereco?'<br><small style="color:#5f6368">'+s.endereco+'</small>':''}`);
     marker.on('dragend', e => { if (!isAdmin) return; const p=e.target.getLatLng(); s.lat=p.lat; s.lng=p.lng; delete s.offset; });
     marker.addTo(layerGroups.grupos); s._marker = marker;
   });
-  document.getElementById('cnt-grupos').textContent = saidasData.length;
+  document.getElementById('cnt-grupos').textContent = (activeSaidaGrupoFilter?items.length+'/':'')+saidasData.length;
   saveState();
 }
 function renderComercios() {
@@ -1497,7 +1499,7 @@ function switchTab(name, btn) {
 // ── LEGEND ──
 function updateLegend() {
   const box = document.getElementById('legendBox'); let html='';
-  if (activeTab==='grupos') { html='<span class="legend-title">Saídas de campo</span>'; saidasData.forEach(s=>html+=`<div><span class="dot" style="background:${s.cor}"></span>${s.grupo} — ${s.nome}</div>`); }
+  if (activeTab==='grupos') { html='<span class="legend-title">Saídas de campo</span>'; saidasData.forEach(s=>html+=`<div style="${activeSaidaGrupoFilter&&activeSaidaGrupoFilter!==s.grupo?'opacity:0.3':''}"><span class="dot" style="background:${s.cor}"></span>${s.grupo} — ${s.nome}</div>`); if (activeSaidaGrupoFilter) html+=`<div style="margin-top:4px;font-size:0.68rem;color:#5f6368">Filtro: ${activeSaidaGrupoFilter}</div>`; }
   if (activeTab==='publicadores') { html='<span class="legend-title">Grupos</span>'; Object.entries(groupColors).forEach(([g,c])=>html+=`<div style="${activeGroupFilter&&activeGroupFilter!==g?'opacity:0.3':''}"><span class="dot" style="background:${c}"></span>${g}</div>`); if (activeGroupFilter) html+=`<div style="margin-top:4px;font-size:0.68rem;color:#5f6368">Filtro: ${activeGroupFilter}</div>`; }
   if (activeTab==='comercios') { html='<span class="legend-title">Comércios</span><div style="font-size:0.7rem;color:#5f6368">Toque num ponto</div>'; }
   if (activeTab==='condominios') { html='<span class="legend-title">Condomínios</span><div style="font-size:0.7rem;color:#5f6368">Toque num ponto</div>'; }
@@ -1592,9 +1594,10 @@ function switchTabChip(name, btn) {
     if (k===name) { if (!map.hasLayer(layerGroups[k])) map.addLayer(layerGroups[k]); }
     else { if (map.hasLayer(layerGroups[k])) map.removeLayer(layerGroups[k]); }
   });
-  const showCat = name==='comercios'||name==='publicadores'||name==='quadras';
+  const showCat = name==='grupos'||name==='comercios'||name==='publicadores'||name==='quadras';
   document.getElementById('catbar').classList.toggle('show', showCat);
   refreshHintForTab();
+  if (name==='grupos') { renderCatbar(); renderGrupos(); }
   if (name==='comercios') { renderCatbar(); renderComercios(); }
   if (name==='condominios') { renderCondominios(); }
   if (name==='publicadores') { renderCatbar(); renderPublicadores(); }
@@ -1630,7 +1633,7 @@ function setViewMode(mode) {
 
   // catbar: só mostra em mapa/lista E quando a aba ativa tem categorias (comércios/publicadores/quadras)
   const catbar = document.getElementById('catbar');
-  const showCat = showChip && (activeTab==='comercios'||activeTab==='publicadores'||activeTab==='quadras');
+  const showCat = showChip && (activeTab==='grupos'||activeTab==='comercios'||activeTab==='publicadores'||activeTab==='quadras');
   catbar.classList.toggle('show', showCat);
   document.body.classList.toggle('show-catbar', showCat);
 
@@ -1737,6 +1740,20 @@ function goFocusHome(tabName) {
 // ── CATBAR ──
 function renderCatbar() {
   const box = document.getElementById('catbarInner'); if (!box) return;
+  if (activeTab==='grupos') {
+    let html = `<button class="cat-chip${activeSaidaGrupoFilter?'':' active'}" data-sgrp="">Todos <span class="count">${saidasData.length}</span></button>`;
+    Object.keys(groupColors).forEach(g=>{
+      const countPub = publicadoresData.filter(p=>p.grupo===g).length;
+      html += `<button class="cat-chip${activeSaidaGrupoFilter===g?' active':''}" data-sgrp="${g}"><span class="dot" style="background:${groupColors[g]};width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:4px"></span>${g} <span class="count">👥 ${countPub}</span></button>`;
+    });
+    box.innerHTML = html;
+    box.querySelectorAll('.cat-chip').forEach(btn=>{btn.onclick=()=>{
+      activeSaidaGrupoFilter = btn.dataset.sgrp || null;
+      renderCatbar(); renderGrupos(); updateLegend(); if (viewMode==='lista') renderList();
+      if (activeSaidaGrupoFilter) { const m=saidasData.filter(s=>s.grupo===activeSaidaGrupoFilter&&s._marker); if (m.length) { const g=L.featureGroup(m.map(s=>s._marker)); map.fitBounds(g.getBounds(),{padding:[40,40]}); } }
+    };});
+    return;
+  }
   if (activeTab==='quadras') {
     let html = `<button class="cat-chip mode-chip${quadraCatMode==='mapa'?' active':''}" data-mode="mapa">🗺️ Mapas</button><button class="cat-chip mode-chip${quadraCatMode==='grupo'?' active':''}" data-mode="grupo">👥 Grupos</button><button class="cat-chip mode-chip${quadraCatMode==='cobertura'?' active':''}" data-mode="cobertura">🎯 Cobertura</button><div class="catbar-divider"></div>`;
     if (quadraCatMode==='grupo') {
@@ -1796,7 +1813,7 @@ function renderGlobalSearch() {
   results.slice(0,200).forEach(r=>{
     const div=document.createElement('div'); div.className='search-result';
     div.innerHTML=`<span class="search-badge">${r.badge}</span><div class="search-info"><b>${r.title}</b><span>${r.sub}</span></div>`;
-    div.onclick=()=>{ closeGlobalSearch(); activeCategoryFilter=null; activeGroupFilter=null; activeMapaFilter=null; activeQuadraGrupoFilter=null; switchTab(r.tab); setTimeout(()=>focusItem(r.item),60); };
+    div.onclick=()=>{ closeGlobalSearch(); activeCategoryFilter=null; activeGroupFilter=null; activeSaidaGrupoFilter=null; activeMapaFilter=null; activeQuadraGrupoFilter=null; switchTab(r.tab); setTimeout(()=>focusItem(r.item),60); };
     box.appendChild(div);
   });
 }
@@ -1821,7 +1838,8 @@ function renderList() {
   box.innerHTML='';
 
   if (activeTab==='grupos') {
-    const items=saidasData.filter(s=>!q||(s.grupo+' '+s.nome+' '+(s.endereco||'')).toLowerCase().includes(q));
+    const base=activeSaidaGrupoFilter?saidasData.filter(s=>s.grupo===activeSaidaGrupoFilter):saidasData;
+    const items=base.filter(s=>!q||(s.grupo+' '+s.nome+' '+(s.endereco||'')).toLowerCase().includes(q));
     if (!items.length) { box.innerHTML='<div class="empty-msg"><strong>📭</strong>Nenhum grupo encontrado</div>'; return; }
     items.forEach(s=>{
       const card=document.createElement('div'); card.className='card'; card.style.borderLeftColor=s.cor||'#dadce0';
@@ -1921,9 +1939,6 @@ function renderList() {
 }
 
 // ── EXPORT/IMPORT ──
-// ── EXPORT/IMPORT ──
-
-// ── EXPORT/IMPORT ──
 function exportData() {
   const payload={saidasData,comerciosData,condominiosData,publicadoresData,quadrasData,exportedAt:new Date().toISOString()};
   const blob=new Blob([JSON.stringify(payload,jsonReplacer,2)],{type:'application/json'});
@@ -1977,9 +1992,6 @@ function updateHomeGreeting(user) {
   const greet = h<12?'Bom dia':h<18?'Boa tarde':'Boa noite';
   const name = user ? (user.displayName ? user.displayName.split(' ')[0] : 'por aqui') : '';
   document.getElementById('homeGreeting').textContent = greet + (name ? ', '+name+'! 👋' : '! 👋');
-  // fallback simples
-  const saudacao = h<12?'Bom dia':h<18?'Boa tarde':'Boa noite';
-  document.getElementById('homeGreeting').textContent = saudacao + (name ? ', '+name+'! 👋' : '! 👋');
   if (user && user.photoURL) {
     document.getElementById('homeAvatar').innerHTML = `<img src="${user.photoURL}" alt="">`;
   }
