@@ -469,6 +469,9 @@ body.viewer-mode .cartas-item-remove{display:none!important;}
 body.viewer-mode .cartas-add-row{display:none!important;}
 body.viewer-mode .btn-photo{display:none!important;}
 body.viewer-mode .btn-photo-remove{display:none!important;}
+body.viewer-mode .acoes-grid{display:none!important;}
+body.viewer-mode .home-section-acoes{display:none!important;}
+body.viewer-mode .nav-fab-wrap{visibility:hidden!important;pointer-events:none!important;}
 body.viewer-mode #nav-exportar{display:none!important;}
 body.viewer-mode #nav-importar{display:none!important;}
 body.viewer-mode .btn-cartao-upload{display:none!important;}
@@ -603,6 +606,7 @@ body.viewer-mode #btnResetCobertura{display:none!important;}
   </div>
 
   <!-- Ações Rápidas -->
+  <div class="home-section-acoes">
   <div class="home-section">
     <div class="home-section-head">
       <span class="home-section-title">Ações rápidas</span>
@@ -633,6 +637,7 @@ body.viewer-mode #btnResetCobertura{display:none!important;}
       <div class="acao-icon" style="background:#e6f4ea;">📥</div>
       <span class="acao-label">Importar Dados</span>
     </button>
+  </div>
   </div>
 
   <!-- Atividades Recentes -->
@@ -1013,6 +1018,7 @@ function wireStreetView(card, item) {
 function wirePhotoBlock(card, item, rerenderFn) {
   const input = card.querySelector('.photo-input');
   if (input) input.onchange = async () => {
+    if (!isAdmin) return;
     const file = input.files[0]; if (!file) return;
     showSnack('📷 Processando foto...');
     try {
@@ -1027,7 +1033,7 @@ function wirePhotoBlock(card, item, rerenderFn) {
     } catch (e) { showSnack('❌ Não foi possível salvar a foto'); }
   };
   const rm = card.querySelector('.btn-photo-remove');
-  if (rm) rm.onclick = () => { delete item.foto; saveState(); rerenderFn(); renderList(); showSnack('🗑 Foto removida'); };
+  if (rm) rm.onclick = () => { if (!isAdmin) return; delete item.foto; saveState(); rerenderFn(); renderList(); showSnack('🗑 Foto removida'); };
 }
 function avatarHTML(item, emoji, bg) {
   return item.foto ? `<img src="${item.foto}">` : `<span style="font-size:18px">${emoji}</span>`;
@@ -1208,6 +1214,7 @@ function cartasBlockHTML(c) {
 function wireCartasBlock(card, c, rerenderFn) {
   const addBtn = card.querySelector('.btn-cartas-add');
   if (addBtn) addBtn.onclick = () => {
+    if (!isAdmin) return;
     const dataInp = card.querySelector('.cartas-input-data');
     const qtdInp = card.querySelector('.cartas-input-qtd');
     const data = dataInp.value;
@@ -1220,6 +1227,7 @@ function wireCartasBlock(card, c, rerenderFn) {
   };
   card.querySelectorAll('.cartas-item-remove').forEach(btn=>{
     btn.onclick = () => {
+      if (!isAdmin) return;
       const id = btn.dataset.id;
       c.cartas = (c.cartas || []).filter(r => r.id !== id);
       rerenderFn(); renderList(); showSnack('🗑 Registro removido');
@@ -1249,6 +1257,7 @@ function makeDotIcon(color) {
 
 // ── POPUPS ──
 function editSaidaPopup(marker, s) {
+  if (!isAdmin) return `<b>Grupo ${s.grupo}</b><br>Saída: ${s.nome}${s.endereco?'<br><small style="color:#5f6368">'+s.endereco+'</small>':''}`;
   const div = document.createElement('div'); div.className = 'popup-edit';
   div.innerHTML = `<b>Editar saída</b><input type="text" value="${s.grupo}" data-f="grupo" placeholder="Grupo"><input type="text" value="${s.nome}" data-f="nome" placeholder="Referência"><input type="text" value="${s.endereco||''}" data-f="endereco" placeholder="Endereço"><div class="popup-actions"><button class="btn-save">Salvar</button><button class="btn-del">Excluir</button></div>`;
   div.querySelector('.btn-save').onclick = async () => {
@@ -1262,6 +1271,7 @@ function editSaidaPopup(marker, s) {
   return div;
 }
 function editComercioPopup(marker, c) {
+  if (!isAdmin) return `<b>${c.nome}</b><br>${c.categoria}<br><small style="color:#5f6368">${c.endereco}</small>`;
   const div = document.createElement('div'); div.className = 'popup-edit';
   div.innerHTML = `<b>Editar comércio</b><input type="text" value="${c.nome}" data-f="nome" placeholder="Nome"><input type="text" value="${c.endereco}" data-f="endereco" placeholder="Endereço"><input type="text" value="${c.categoria}" data-f="categoria" placeholder="Categoria"><div class="popup-actions"><button class="btn-save">Salvar</button><button class="btn-del">Excluir</button></div>`;
   div.querySelector('.btn-save').onclick = async () => {
@@ -1274,6 +1284,7 @@ function editComercioPopup(marker, c) {
   return div;
 }
 function editCondominioPopup(marker, c) {
+  if (!isAdmin) return `<b>${c.nome}</b><br>Condomínio/Prédio<br><small style="color:#5f6368">${c.endereco}</small>`;
   const div = document.createElement('div'); div.className = 'popup-edit';
   div.innerHTML = `<b>Editar condomínio</b><input type="text" value="${c.nome}" data-f="nome" placeholder="Nome"><input type="text" value="${c.endereco}" data-f="endereco" placeholder="Endereço"><div class="popup-actions"><button class="btn-save">Salvar</button><button class="btn-del">Excluir</button></div>`;
   div.querySelector('.btn-save').onclick = async () => {
@@ -1286,6 +1297,7 @@ function editCondominioPopup(marker, c) {
   return div;
 }
 function editPublicadorPopup(marker, p) {
+  if (!isAdmin) return `<b>${p.membros.join(', ')}</b><br>Grupo: ${p.grupo}${p.endereco?'<br><small style="color:#5f6368">'+p.endereco+'</small>':''}`;
   const div = document.createElement('div'); div.className = 'popup-edit';
   div.innerHTML = `<b>Editar família</b><input type="text" value="${p.membros.join(', ')}" data-f="membros" placeholder="Nomes"><input type="text" value="${p.endereco||''}" data-f="endereco" placeholder="Endereço"><select data-f="grupo">${Object.keys(groupColors).map(g=>`<option value="${g}" ${g===p.grupo?'selected':''}>${g}</option>`).join('')}</select><div class="popup-actions"><button class="btn-save">Salvar</button><button class="btn-del">Excluir</button></div>`;
   div.querySelector('.btn-save').onclick = async () => {
@@ -1305,7 +1317,7 @@ function renderGrupos() {
     let lat = s.lat, lng = s.lng; if (s.offset) { lat += s.offset[0]; lng += s.offset[1]; }
     const marker = L.marker([lat,lng], { icon: makeDivIcon(s.cor, s.grupo[0]), draggable: editMode });
     marker.bindPopup(editMode ? editSaidaPopup(marker,s) : `${s.foto?`<img src="${s.foto}" class="popup-photo">`:''}<b>Grupo ${s.grupo}</b><br>Saída: ${s.nome}${s.endereco?'<br><small style="color:#5f6368">'+s.endereco+'</small>':''}`);
-    marker.on('dragend', e => { const p=e.target.getLatLng(); s.lat=p.lat; s.lng=p.lng; delete s.offset; });
+    marker.on('dragend', e => { if (!isAdmin) return; const p=e.target.getLatLng(); s.lat=p.lat; s.lng=p.lng; delete s.offset; });
     marker.addTo(layerGroups.grupos); s._marker = marker;
   });
   document.getElementById('cnt-grupos').textContent = saidasData.length;
@@ -1317,7 +1329,7 @@ function renderComercios() {
   items.forEach(c => {
     const marker = L.marker([c.lat,c.lng], { icon: makeDotIcon(c.cor||'#868e96'), draggable: editMode });
     marker.bindPopup(editMode ? editComercioPopup(marker,c) : `${c.foto?`<img src="${c.foto}" class="popup-photo">`:''}<b>${c.nome}</b><br>${c.categoria}<br><small style="color:#5f6368">${c.endereco}</small>`);
-    marker.on('dragend', e => { const p=e.target.getLatLng(); c.lat=p.lat; c.lng=p.lng; });
+    marker.on('dragend', e => { if (!isAdmin) return; const p=e.target.getLatLng(); c.lat=p.lat; c.lng=p.lng; });
     marker.addTo(layerGroups.comercios); c._marker = marker;
   });
   document.getElementById('cnt-comercios').textContent = comerciosData.length;
@@ -1328,7 +1340,7 @@ function renderCondominios() {
   condominiosData.forEach(c => {
     const marker = L.marker([c.lat,c.lng], { icon: makeDotIcon(c.cor||'#364fc7'), draggable: editMode });
     marker.bindPopup(editMode ? editCondominioPopup(marker,c) : `${c.foto?`<img src="${c.foto}" class="popup-photo">`:''}<b>${c.nome}</b><br>Condomínio/Prédio<br><small style="color:#5f6368">${c.endereco}</small>`);
-    marker.on('dragend', e => { const p=e.target.getLatLng(); c.lat=p.lat; c.lng=p.lng; });
+    marker.on('dragend', e => { if (!isAdmin) return; const p=e.target.getLatLng(); c.lat=p.lat; c.lng=p.lng; });
     marker.addTo(layerGroups.condominios); c._marker = marker;
   });
   document.getElementById('cnt-condominios').textContent = condominiosData.length;
@@ -1341,7 +1353,7 @@ function renderPublicadores() {
     const cor = groupColors[p.grupo] || '#868e96';
     const marker = L.marker([p.lat,p.lng], { icon: makeDotIcon(cor), draggable: editMode });
     marker.bindPopup(editMode ? editPublicadorPopup(marker,p) : `${p.foto?`<img src="${p.foto}" class="popup-photo">`:''}<b>${p.membros.join(', ')}</b><br>Grupo: ${p.grupo}${p.endereco?'<br><small style="color:#5f6368">'+p.endereco+'</small>':''}`);
-    marker.on('dragend', e => { const pos=e.target.getLatLng(); p.lat=pos.lat; p.lng=pos.lng; });
+    marker.on('dragend', e => { if (!isAdmin) return; const pos=e.target.getLatLng(); p.lat=pos.lat; p.lng=pos.lng; });
     marker.addTo(layerGroups.publicadores); p._marker = marker;
   });
   document.getElementById('cnt-publicadores').textContent = (activeGroupFilter?items.length+'/':'')+publicadoresData.length;
@@ -1409,6 +1421,7 @@ function showQuadraCartao(idx) {
   }
 }
 function deleteQuadra(idx) {
+  if (!isAdmin) { showSnack('❌ Apenas o administrador pode remover quadras'); return; }
   if (!confirm('Remover esta quadra?')) return;
   quadrasData.splice(idx,1); renderQuadras(); renderCatbar(); renderList();
 }
@@ -1425,6 +1438,7 @@ function updateDrawPreview() {
 }
 function undoDrawPoint() { drawPoints.pop(); updateDrawPreview(); }
 function startDrawQuadra() {
+  if (!isAdmin) { showSnack('❌ Apenas o administrador pode desenhar quadras'); return; }
   drawingQuadra=true; drawPoints=[]; updateDrawPreview();
   showHint('Toque no mapa pra marcar os cantos da quadra (mín. 3). Depois toque em Finalizar.');
   document.getElementById('drawToolbar').classList.add('show');
@@ -1444,6 +1458,7 @@ function refreshHintForTab() {
 }
 function cancelDrawQuadra() { stopDrawing(); refreshHintForTab(); }
 function finalizeDrawQuadra() {
+  if (!isAdmin) { showSnack('❌ Apenas o administrador pode adicionar quadras'); return; }
   if (drawPoints.length<3) { alert('Marque pelo menos 3 cantos.'); return; }
   const mapa = prompt('Número do mapa (ex: 15):'); if (!mapa) return;
   const nome = prompt('Nome/observação (opcional):', '') || '';
@@ -1519,6 +1534,7 @@ function updateLegend() {
 
 // ── EDIT MODE ──
 function toggleEditMode() {
+  if (!isAdmin) { showSnack('❌ Apenas o administrador pode editar'); return; }
   editMode = !editMode;
   const btn = document.getElementById('editToggleBtn');
   btn.classList.toggle('active-edit', editMode);
@@ -1531,11 +1547,13 @@ function toggleEditMode() {
 
 // ── ADD ──
 function startAddMode() {
+  if (!isAdmin) { showSnack('❌ Apenas o administrador pode adicionar itens'); return; }
   if (activeTab==='quadras') { startDrawQuadra(); return; }
   showHint('Toque no mapa para adicionar o ponto');
   map.once('click', function(e) { hideHint(); addNewItem(activeTab, e.latlng.lat, e.latlng.lng); });
 }
 async function addNewItem(target, lat, lng) {
+  if (!isAdmin) { showSnack('❌ Apenas o administrador pode adicionar itens'); return; }
   if (target==='comercios') {
     const nome=prompt('Nome do comércio:'); if (!nome) return;
     const categoria=prompt('Categoria:','Outros')||'Outros'; const endereco=prompt('Endereço:','')||'';
@@ -1558,6 +1576,7 @@ async function addNewItem(target, lat, lng) {
   renderList(); showSnack('✓ Adicionado com sucesso');
 }
 function addItemPrompt() {
+  if (!isAdmin) { showSnack('❌ Apenas o administrador pode adicionar itens'); return; }
   if (activeTab==='quadras') { setViewMode('mapa'); if (!editMode) toggleEditMode(); startDrawQuadra(); return; }
   const c=map.getCenter(); addNewItem(activeTab, c.lat, c.lng);
 }
@@ -1644,12 +1663,14 @@ function goToTab(tabName) {
 }
 
 function handleNavFab() {
+  if (!isAdmin) { showSnack('❌ Apenas o administrador pode adicionar itens'); return; }
   if (viewMode==='home') { setViewMode('mapa'); if (!editMode) toggleEditMode(); startAddMode(); }
   else if (viewMode==='mapa') { if (!editMode) toggleEditMode(); startAddMode(); }
   else if (viewMode==='lista') addItemPrompt();
 }
 
 function quickAdd(tabName) {
+  if (!isAdmin) { showSnack('❌ Apenas o administrador pode editar'); return; }
   switchTab(tabName);
   setViewMode('mapa');
   if (!editMode) toggleEditMode();
@@ -1815,9 +1836,9 @@ function renderList() {
         if (m.length) { const g=L.featureGroup(m.map(qd=>qd._layer)); map.fitBounds(g.getBounds(),{padding:[30,30]}); }
         else showSnack('Nenhuma quadra atribuída ao grupo '+s.grupo+' ainda');
       };
-      card.querySelector('.btn-save-card').onclick=async()=>{const btn=card.querySelector('.btn-save-card'); const st=card.querySelector('[data-geo-status]'); btn.disabled=true; s.grupo=card.querySelector('[data-f="grupo"]').value; s.nome=card.querySelector('[data-f="nome"]').value; const ne=card.querySelector('[data-f="endereco"]').value; if(ne&&ne!==s.endereco){btn.textContent='Localizando...'; const res=await geocode(ne); if(res){s.lat=res.lat;s.lng=res.lng;st.className='geo-status ok';st.textContent='✓ Localizado';} else {st.className='geo-status fail';st.textContent='✗ Não encontrado';}} else st.textContent=''; s.endereco=ne; renderGrupos(); finishSave(card);};
+      card.querySelector('.btn-save-card').onclick=async()=>{if(!isAdmin)return; const btn=card.querySelector('.btn-save-card'); const st=card.querySelector('[data-geo-status]'); btn.disabled=true; s.grupo=card.querySelector('[data-f="grupo"]').value; s.nome=card.querySelector('[data-f="nome"]').value; const ne=card.querySelector('[data-f="endereco"]').value; if(ne&&ne!==s.endereco){btn.textContent='Localizando...'; const res=await geocode(ne); if(res){s.lat=res.lat;s.lng=res.lng;st.className='geo-status ok';st.textContent='✓ Localizado';} else {st.className='geo-status fail';st.textContent='✗ Não encontrado';}} else st.textContent=''; s.endereco=ne; renderGrupos(); finishSave(card);};
       card.querySelector('.btn-locate').onclick=()=>focusItem(s);
-      card.querySelector('.btn-remove').onclick=()=>{if(!confirm('Remover grupo?')) return; const idx=saidasData.indexOf(s); if(idx>-1) saidasData.splice(idx,1); renderGrupos(); renderList();};
+      card.querySelector('.btn-remove').onclick=()=>{if(!isAdmin)return; if(!confirm('Remover grupo?')) return; const idx=saidasData.indexOf(s); if(idx>-1) saidasData.splice(idx,1); renderGrupos(); renderList();};
       box.appendChild(card);
     });
   }
@@ -1832,9 +1853,9 @@ function renderList() {
       wireDirty(card);
       wirePhotoBlock(card,c,renderComercios);
       wireStreetView(card,c);
-      card.querySelector('.btn-save-card').onclick=async()=>{const btn=card.querySelector('.btn-save-card'); const st=card.querySelector('[data-geo-status]'); btn.disabled=true; c.nome=card.querySelector('[data-f="nome"]').value; c.categoria=card.querySelector('[data-f="categoria"]').value; const ne=card.querySelector('[data-f="endereco"]').value; if(ne&&ne!==c.endereco){btn.textContent='Localizando...'; const res=await geocode(ne); if(res){c.lat=res.lat;c.lng=res.lng;st.className='geo-status ok';st.textContent='✓ Localizado';} else{st.className='geo-status fail';st.textContent='✗ Não encontrado';}} else st.textContent=''; c.endereco=ne; renderComercios(); finishSave(card);};
+      card.querySelector('.btn-save-card').onclick=async()=>{if(!isAdmin)return; const btn=card.querySelector('.btn-save-card'); const st=card.querySelector('[data-geo-status]'); btn.disabled=true; c.nome=card.querySelector('[data-f="nome"]').value; c.categoria=card.querySelector('[data-f="categoria"]').value; const ne=card.querySelector('[data-f="endereco"]').value; if(ne&&ne!==c.endereco){btn.textContent='Localizando...'; const res=await geocode(ne); if(res){c.lat=res.lat;c.lng=res.lng;st.className='geo-status ok';st.textContent='✓ Localizado';} else{st.className='geo-status fail';st.textContent='✗ Não encontrado';}} else st.textContent=''; c.endereco=ne; renderComercios(); finishSave(card);};
       card.querySelector('.btn-locate').onclick=()=>focusItem(c);
-      card.querySelector('.btn-remove').onclick=()=>{if(!confirm('Remover?')) return; const idx=comerciosData.indexOf(c); if(idx>-1) comerciosData.splice(idx,1); renderComercios(); renderList();};
+      card.querySelector('.btn-remove').onclick=()=>{if(!isAdmin)return; if(!confirm('Remover?')) return; const idx=comerciosData.indexOf(c); if(idx>-1) comerciosData.splice(idx,1); renderComercios(); renderList();};
       box.appendChild(card);
     });
   }
@@ -1849,9 +1870,9 @@ function renderList() {
       wirePhotoBlock(card,c,renderCondominios);
       wireStreetView(card,c);
       wireCartasBlock(card,c,renderCondominios);
-      card.querySelector('.btn-save-card').onclick=async()=>{const btn=card.querySelector('.btn-save-card'); const st=card.querySelector('[data-geo-status]'); btn.disabled=true; c.nome=card.querySelector('[data-f="nome"]').value; const ne=card.querySelector('[data-f="endereco"]').value; if(ne&&ne!==c.endereco){btn.textContent='Localizando...'; const res=await geocode(ne); if(res){c.lat=res.lat;c.lng=res.lng;st.className='geo-status ok';st.textContent='✓ Localizado';} else{st.className='geo-status fail';st.textContent='✗ Não encontrado';}} else st.textContent=''; c.endereco=ne; renderCondominios(); finishSave(card);};
+      card.querySelector('.btn-save-card').onclick=async()=>{if(!isAdmin)return; const btn=card.querySelector('.btn-save-card'); const st=card.querySelector('[data-geo-status]'); btn.disabled=true; c.nome=card.querySelector('[data-f="nome"]').value; const ne=card.querySelector('[data-f="endereco"]').value; if(ne&&ne!==c.endereco){btn.textContent='Localizando...'; const res=await geocode(ne); if(res){c.lat=res.lat;c.lng=res.lng;st.className='geo-status ok';st.textContent='✓ Localizado';} else{st.className='geo-status fail';st.textContent='✗ Não encontrado';}} else st.textContent=''; c.endereco=ne; renderCondominios(); finishSave(card);};
       card.querySelector('.btn-locate').onclick=()=>focusItem(c);
-      card.querySelector('.btn-remove').onclick=()=>{if(!confirm('Remover?')) return; const idx=condominiosData.indexOf(c); if(idx>-1) condominiosData.splice(idx,1); renderCondominios(); renderList();};
+      card.querySelector('.btn-remove').onclick=()=>{if(!isAdmin)return; if(!confirm('Remover?')) return; const idx=condominiosData.indexOf(c); if(idx>-1) condominiosData.splice(idx,1); renderCondominios(); renderList();};
       box.appendChild(card);
     });
   }
@@ -1867,9 +1888,9 @@ function renderList() {
       wireDirty(card);
       wirePhotoBlock(card,p,renderPublicadores);
       wireStreetView(card,p);
-      card.querySelector('.btn-save-card').onclick=async()=>{const btn=card.querySelector('.btn-save-card'); const st=card.querySelector('[data-geo-status]'); btn.disabled=true; p.membros=card.querySelector('[data-f="membros"]').value.split(',').map(s=>s.trim()).filter(Boolean); p.grupo=card.querySelector('[data-f="grupo"]').value; const ne=card.querySelector('[data-f="endereco"]').value; if(ne&&ne!==p.endereco){btn.textContent='Localizando...'; const res=await geocode(ne); if(res){p.lat=res.lat;p.lng=res.lng;st.className='geo-status ok';st.textContent='✓ Localizado';} else{st.className='geo-status fail';st.textContent='✗ Não encontrado';}} else st.textContent=''; p.endereco=ne; renderPublicadores(); finishSave(card);};
+      card.querySelector('.btn-save-card').onclick=async()=>{if(!isAdmin)return; const btn=card.querySelector('.btn-save-card'); const st=card.querySelector('[data-geo-status]'); btn.disabled=true; p.membros=card.querySelector('[data-f="membros"]').value.split(',').map(s=>s.trim()).filter(Boolean); p.grupo=card.querySelector('[data-f="grupo"]').value; const ne=card.querySelector('[data-f="endereco"]').value; if(ne&&ne!==p.endereco){btn.textContent='Localizando...'; const res=await geocode(ne); if(res){p.lat=res.lat;p.lng=res.lng;st.className='geo-status ok';st.textContent='✓ Localizado';} else{st.className='geo-status fail';st.textContent='✗ Não encontrado';}} else st.textContent=''; p.endereco=ne; renderPublicadores(); finishSave(card);};
       card.querySelector('.btn-locate').onclick=()=>focusItem(p);
-      card.querySelector('.btn-remove').onclick=()=>{if(!confirm('Remover publicador?')) return; const idx=publicadoresData.indexOf(p); if(idx>-1) publicadoresData.splice(idx,1); renderPublicadores(); renderList();};
+      card.querySelector('.btn-remove').onclick=()=>{if(!isAdmin)return; if(!confirm('Remover publicador?')) return; const idx=publicadoresData.indexOf(p); if(idx>-1) publicadoresData.splice(idx,1); renderPublicadores(); renderList();};
       box.appendChild(card);
     });
   }
@@ -1889,10 +1910,10 @@ function renderList() {
       card.innerHTML=`<div class="card-header"><div class="card-avatar" style="background:${cor}20;border:2px solid ${cor}"><span style="font-size:18px">🧩</span></div><div><div class="card-name">Mapa ${qd.mapa}</div><div class="card-sub">${qd.nome||'Sem nome'} — ${qd.coords.length} pontos${qd.grupo?' — 👥 '+qd.grupo:''}</div></div></div>${coberturaBadge}${cartaoBlockHTML(qd)}<div class="card-label">Número do mapa</div><div class="card-row"><input type="text" data-f="mapa" value="${qd.mapa}"></div><div class="card-label">Nome/observação</div><div class="card-row"><input type="text" data-f="nome" value="${qd.nome||''}"></div><div class="card-label">Grupo responsável</div><div class="card-row"><select data-f="grupo"><option value="">Sem grupo atribuído</option>${Object.keys(groupColors).map(g=>`<option value="${g}" ${g===qd.grupo?'selected':''}>${g}</option>`).join('')}</select></div><div class="card-label">Cor</div><div class="card-row"><input type="color" data-f="cor" value="${cor}" style="flex:0 0 48px;height:38px;padding:2px;cursor:pointer"><button type="button" class="btn-cor-auto">🎨 Auto</button></div><div class="card-label">Espessura</div><div class="card-row"><input type="number" data-f="weight" min="1" max="12" value="${weight}"></div><div class="card-actions"><button class="btn-action btn-save-card" disabled>💾 Salvar</button><button class="btn-action btn-locate">🗺 Ver</button><button class="btn-action btn-remove">🗑</button></div><div class="card-actions"><button class="btn-action btn-cobertura-toggle" style="background:${qd.coberta?'var(--md-surface-variant)':'#e6f4ea'};color:${qd.coberta?'#5f6368':'#1e8e3e'}">${qd.coberta?'↺ Desfazer baixa':'✓ Dar baixa'}</button></div>`;
       wireDirty(card);
       wireCartaoBlock(card,qd,renderQuadras);
-      card.querySelector('.btn-cor-auto').onclick=()=>{card.querySelector('[data-f="cor"]').value=getColorForMapa(card.querySelector('[data-f="mapa"]').value.trim()||qd.mapa); card.classList.add('dirty'); card.querySelector('.btn-save-card').disabled=false;};
-      card.querySelector('.btn-save-card').onclick=()=>{qd.mapa=card.querySelector('[data-f="mapa"]').value.trim(); qd.nome=card.querySelector('[data-f="nome"]').value; qd.grupo=card.querySelector('[data-f="grupo"]').value||''; qd.cor=card.querySelector('[data-f="cor"]').value; const w=parseInt(card.querySelector('[data-f="weight"]').value,10); qd.weight=isNaN(w)?3:Math.max(1,Math.min(12,w)); renderQuadras(); renderCatbar(); updateLegend(); finishSave(card);};
+      card.querySelector('.btn-cor-auto').onclick=()=>{if(!isAdmin)return; card.querySelector('[data-f="cor"]').value=getColorForMapa(card.querySelector('[data-f="mapa"]').value.trim()||qd.mapa); card.classList.add('dirty'); card.querySelector('.btn-save-card').disabled=false;};
+      card.querySelector('.btn-save-card').onclick=()=>{if(!isAdmin)return; qd.mapa=card.querySelector('[data-f="mapa"]').value.trim(); qd.nome=card.querySelector('[data-f="nome"]').value; qd.grupo=card.querySelector('[data-f="grupo"]').value||''; qd.cor=card.querySelector('[data-f="cor"]').value; const w=parseInt(card.querySelector('[data-f="weight"]').value,10); qd.weight=isNaN(w)?3:Math.max(1,Math.min(12,w)); renderQuadras(); renderCatbar(); updateLegend(); finishSave(card);};
       card.querySelector('.btn-locate').onclick=()=>focusItem(qd);
-      card.querySelector('.btn-remove').onclick=()=>{if(!confirm('Remover quadra?')) return; const idx=quadrasData.indexOf(qd); if(idx>-1) quadrasData.splice(idx,1); renderQuadras(); renderList(); renderCatbar(); updateLegend();};
+      card.querySelector('.btn-remove').onclick=()=>{if(!isAdmin)return; if(!confirm('Remover quadra?')) return; const idx=quadrasData.indexOf(qd); if(idx>-1) quadrasData.splice(idx,1); renderQuadras(); renderList(); renderCatbar(); updateLegend();};
       card.querySelector('.btn-cobertura-toggle').onclick=()=>toggleQuadraCobertura(idxQd);
       box.appendChild(card);
     });
