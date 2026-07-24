@@ -1636,6 +1636,7 @@ function setViewMode(mode) {
   const showCat = showChip && (activeTab==='grupos'||activeTab==='comercios'||activeTab==='publicadores'||activeTab==='quadras');
   catbar.classList.toggle('show', showCat);
   document.body.classList.toggle('show-catbar', showCat);
+  if (showCat) renderCatbar();
 
   // nav active
   document.getElementById('nav-inicio').classList.toggle('active', mode==='home');
@@ -1974,7 +1975,7 @@ if ('serviceWorker' in navigator) {
 }
 
 // ── INIT ──
-renderGrupos(); renderComercios(); renderCondominios(); renderPublicadores(); renderQuadras(); updateLegend(); renderList();
+renderGrupos(); renderComercios(); renderCondominios(); renderPublicadores(); renderQuadras(); updateLegend(); renderList(); renderCatbar();
 
 // Atualiza chips com contagens
 function updateChipCounts() {
