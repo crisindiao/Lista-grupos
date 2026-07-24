@@ -432,8 +432,103 @@ body.show-catbar .hint-toast { top: calc(var(--topbar-h) + var(--chipbar-h) + va
 .snackbar.show { display: block; animation: snackIn .2s ease; }
 @keyframes snackIn { from { opacity: 0; transform: translateX(-50%) translateY(10px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
 </style>
+
+<!-- ── FIREBASE ── -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+  import { getFirestore, doc, setDoc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyDb3i6rxN7P2XB83_HkrorhdTZSVYEphFI",
+    authDomain: "territorio-jardim-ivete.firebaseapp.com",
+    projectId: "territorio-jardim-ivete",
+    storageBucket: "territorio-jardim-ivete.firebasestorage.app",
+    messagingSenderId: "240183369049",
+    appId: "1:240183369049:web:4cf609e77370396db74048"
+  };
+
+  const ADMIN_EMAIL = "crystiam.vanessa@gmail.com";
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+  const provider = new GoogleAuthProvider();
+
+  // Expõe para o escopo global
+  window._fb = { auth, db, provider, signInWithPopup, signOut, onAuthStateChanged, doc, setDoc, getDoc, onSnapshot, ADMIN_EMAIL };
+</script>
+
+<style>
+/* ── AUTH OVERLAY ── */
+#authOverlay {
+  position: fixed; inset: 0; z-index: 9999;
+  background: var(--md-gradient);
+  display: flex; align-items: center; justify-content: center;
+  flex-direction: column; gap: 24px; padding: 32px;
+}
+#authOverlay.hidden { display: none; }
+.auth-card {
+  background: white; border-radius: 20px; padding: 32px 28px;
+  max-width: 340px; width: 100%; text-align: center;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+}
+.auth-logo { font-size: 2.5rem; margin-bottom: 8px; }
+.auth-title { font-family: var(--font-display); font-size: 1.25rem; font-weight: 700; color: var(--md-on-surface); margin-bottom: 4px; }
+.auth-sub { font-size: 0.82rem; color: var(--md-on-surface-variant); margin-bottom: 28px; line-height: 1.5; }
+.btn-google {
+  width: 100%; padding: 14px 20px; border: none; border-radius: 12px;
+  background: #fff; color: #3c4043; font-size: 0.95rem; font-weight: 600;
+  font-family: var(--font-display); cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 12px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2), 0 0 0 1px rgba(0,0,0,0.08);
+  transition: box-shadow .15s, background .15s;
+}
+.btn-google:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.25); background: #f8f8f8; }
+.btn-google:active { background: #f0f0f0; }
+.btn-google svg { width: 20px; height: 20px; flex-shrink: 0; }
+.auth-loading { color: rgba(255,255,255,0.8); font-size: 0.9rem; font-family: var(--font-display); }
+
+/* ── USER BADGE ── */
+#userBadge {
+  display: none; align-items: center; gap: 8px;
+  background: rgba(255,255,255,0.15); border-radius: 20px;
+  padding: 4px 12px 4px 4px; cursor: pointer;
+  transition: background .15s;
+}
+#userBadge:hover { background: rgba(255,255,255,0.25); }
+#userBadge img { width: 28px; height: 28px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.5); }
+#userBadge span { font-size: 0.72rem; color: rgba(255,255,255,0.9); font-weight: 500; max-width: 80px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#adminBadge { display: none; background: #ffd700; color: #3d1c5c; font-size: 0.6rem; font-weight: 800; border-radius: 8px; padding: 2px 6px; letter-spacing: .04em; }
+
+/* ── VIEWER MODE (sem edit) ── */
+body.viewer-mode #editToggleBtn { display: none !important; }
+body.viewer-mode .btn-add-primary { display: none !important; }
+body.viewer-mode .btn-save-card { display: none !important; }
+body.viewer-mode .btn-remove { display: none !important; }
+body.viewer-mode .fab { display: none !important; }
+body.viewer-mode .card input,
+body.viewer-mode .card select { pointer-events: none; background: var(--md-surface-variant); color: var(--md-on-surface-variant); }
+body.viewer-mode .btn-cartas-add { display: none !important; }
+body.viewer-mode .cartas-item-remove { display: none !important; }
+body.viewer-mode .cartas-add-row { display: none !important; }
+</style>
 </head>
 <body>
+
+<!-- AUTH OVERLAY -->
+<div id="authOverlay">
+  <div class="auth-card">
+    <div class="auth-logo">🗺️</div>
+    <div class="auth-title">Território Jardim Ivete</div>
+    <div class="auth-sub">Faça login com sua conta Google para acessar o mapa de território.</div>
+    <button class="btn-google" id="btnGoogleLogin">
+      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+      Entrar com Google
+    </button>
+  </div>
+  <div class="auth-loading" id="authLoading" style="display:none">Verificando...</div>
+</div>
 
 <!-- TOP APP BAR -->
 <div class="topbar">
@@ -444,11 +539,14 @@ body.show-catbar .hint-toast { top: calc(var(--topbar-h) + var(--chipbar-h) + va
   <div class="topbar-actions">
     <button class="icon-btn" onclick="openGlobalSearch()" title="Buscar tudo">🔍</button>
     <button class="icon-btn" id="editToggleBtn" onclick="toggleEditMode()" title="Modo edição">✏️</button>
+    <div id="userBadge" onclick="handleSignOut()" title="Sair">
+      <img id="userPhoto" src="" alt="">
+      <span id="userName"></span>
+      <span id="adminBadge">ADMIN</span>
+    </div>
     <button class="icon-btn" onclick="showMoreMenu()" title="Mais opções">⋮</button>
   </div>
 </div>
-
-<!-- STATS BAR (cards estilo app, substitui as abas) -->
 <div class="statsbar" id="statsbar">
   <div class="stat-card active" data-layer="grupos" onclick="switchTab('grupos', this)">
     <div class="stat-icon" style="background:#e8f0fe;color:#1a73e8;">📍</div>
@@ -612,34 +710,90 @@ function showMoreMenu() {
   let drawPreviewLayer = null;
 
   // ---------- Persistência local (salva automaticamente as edições no navegador) ----------
-  const DATA_STORAGE = "jardim-ivete-dados-v1";
 
-  // Remove referências circulares (ex: _marker/_layer do Leaflet) antes de serializar
+  // ---------- ADMIN E MODO VIEWER ----------
+  const ADMIN_EMAIL = "crystiam.vanessa@gmail.com";
+  let currentUser = null;
+  let isAdmin = false;
+
+  function applyUserRole(user) {
+    currentUser = user;
+    isAdmin = user && user.email === ADMIN_EMAIL;
+    if (isAdmin) {
+      document.body.classList.remove('viewer-mode');
+    } else {
+      document.body.classList.add('viewer-mode');
+      if (editMode) toggleEditMode(); // garante que sai do modo edição
+    }
+  }
+
+  function handleSignOut() {
+    if (!confirm('Sair da conta?')) return;
+    window._fb.signOut(window._fb.auth).then(() => {
+      document.getElementById('authOverlay').classList.remove('hidden');
+      document.getElementById('userBadge').style.display = 'none';
+    });
+  }
+
+  // ---------- PERSISTÊNCIA FIREBASE (substitui localStorage) ----------
+  const DATA_STORAGE = "jardim-ivete-dados-v1"; // mantido para compatibilidade
+
   function jsonReplacer(key, value) {
     if (key === '_marker' || key === '_layer') return undefined;
     return value;
   }
 
-  function saveState() {
+  // Salva no Firestore
+  async function saveState() {
+    // Também salva localmente como cache
     try {
       const payload = { saidasData, comerciosData, condominiosData, publicadoresData, quadrasData, savedAt: new Date().toISOString() };
       localStorage.setItem(DATA_STORAGE, JSON.stringify(payload, jsonReplacer));
-    } catch (e) { console.error('Falha ao salvar dados localmente:', e); }
+    } catch(e) {}
+
+    // Salva no Firestore (só admin pode, mas chamamos sempre — regras do Firestore bloqueiam se não for admin)
+    if (!currentUser) return;
+    try {
+      const payload = JSON.parse(JSON.stringify({ saidasData, comerciosData, condominiosData, publicadoresData, quadrasData, savedAt: new Date().toISOString() }, jsonReplacer));
+      const { db, doc, setDoc } = window._fb;
+      await setDoc(doc(db, "territorio", "dados"), payload);
+    } catch(e) { console.error('Falha ao salvar no Firebase:', e); }
   }
 
-  function loadState() {
+  // Carrega do Firestore (com fallback para localStorage)
+  async function loadState() {
+    // Tenta localStorage primeiro para UI instantânea
     try {
       const raw = localStorage.getItem(DATA_STORAGE);
-      if (!raw) return;
-      const saved = JSON.parse(raw);
-      if (Array.isArray(saved.saidasData)) { saidasData.length = 0; saved.saidasData.forEach(x => saidasData.push(x)); }
-      if (Array.isArray(saved.comerciosData)) { comerciosData.length = 0; saved.comerciosData.forEach(x => comerciosData.push(x)); }
-      if (Array.isArray(saved.condominiosData)) { condominiosData.length = 0; saved.condominiosData.forEach(x => condominiosData.push(x)); }
-      if (Array.isArray(saved.publicadoresData)) { publicadoresData.length = 0; saved.publicadoresData.forEach(x => publicadoresData.push(x)); }
-      if (Array.isArray(saved.quadrasData)) { quadrasData.length = 0; saved.quadrasData.forEach(x => quadrasData.push(x)); }
-    } catch (e) { console.error('Falha ao carregar dados salvos:', e); }
+      if (raw) {
+        const saved = JSON.parse(raw);
+        applyLoadedData(saved);
+      }
+    } catch(e) {}
+
+    // Depois busca do Firestore
+    if (!currentUser) return;
+    try {
+      const { db, doc, getDoc } = window._fb;
+      const snap = await getDoc(doc(db, "territorio", "dados"));
+      if (snap.exists()) {
+        const saved = snap.data();
+        applyLoadedData(saved);
+        // Atualiza cache local
+        localStorage.setItem(DATA_STORAGE, JSON.stringify(saved));
+        // Re-renderiza
+        renderGrupos(); renderComercios(); renderCondominios(); renderPublicadores(); renderQuadras(); updateLegend(); renderList();
+      }
+    } catch(e) { console.error('Falha ao carregar do Firebase:', e); }
   }
-  loadState();
+
+  function applyLoadedData(saved) {
+    if (Array.isArray(saved.saidasData)) { saidasData.length = 0; saved.saidasData.forEach(x => saidasData.push(x)); }
+    if (Array.isArray(saved.comerciosData)) { comerciosData.length = 0; saved.comerciosData.forEach(x => comerciosData.push(x)); }
+    if (Array.isArray(saved.condominiosData)) { condominiosData.length = 0; saved.condominiosData.forEach(x => condominiosData.push(x)); }
+    if (Array.isArray(saved.publicadoresData)) { publicadoresData.length = 0; saved.publicadoresData.forEach(x => publicadoresData.push(x)); }
+    if (Array.isArray(saved.quadrasData)) { quadrasData.length = 0; saved.quadrasData.forEach(x => quadrasData.push(x)); }
+  }
 
 // ── GEO ──
 const GEO_API_KEY = "a5769984623a48f69c9ba7f9022a7858";
@@ -1222,6 +1376,8 @@ function renderList() {
 }
 
 // ── EXPORT/IMPORT ──
+
+// ── EXPORT/IMPORT ──
 function exportData() {
   const payload={saidasData,comerciosData,condominiosData,publicadoresData,quadrasData,exportedAt:new Date().toISOString()};
   const blob=new Blob([JSON.stringify(payload,jsonReplacer,2)],{type:'application/json'});
@@ -1231,27 +1387,22 @@ function exportData() {
   showSnack('💾 Exportado com sucesso');
 }
 function importData(event) {
+  if (!isAdmin) { showSnack('❌ Apenas o administrador pode importar dados'); return; }
   const file=event.target.files[0]; if (!file) return;
   const reader=new FileReader(); reader.onload=()=>{
     try {
       const saved=JSON.parse(reader.result);
       if (!confirm('Importar vai substituir todos os dados atuais. Continuar?')) return;
-      if(Array.isArray(saved.saidasData)){saidasData.length=0;saved.saidasData.forEach(x=>saidasData.push(x));}
-      if(Array.isArray(saved.comerciosData)){comerciosData.length=0;saved.comerciosData.forEach(x=>comerciosData.push(x));}
-      if(Array.isArray(saved.condominiosData)){condominiosData.length=0;saved.condominiosData.forEach(x=>condominiosData.push(x));}
-      if(Array.isArray(saved.publicadoresData)){publicadoresData.length=0;saved.publicadoresData.forEach(x=>publicadoresData.push(x));}
-      if(Array.isArray(saved.quadrasData)){quadrasData.length=0;saved.quadrasData.forEach(x=>quadrasData.push(x));}
+      applyLoadedData(saved);
       renderGrupos();renderComercios();renderCondominios();renderPublicadores();renderQuadras();updateLegend();renderList();
+      saveState();
       showSnack('✓ Dados importados com sucesso');
     } catch(e) { showSnack('❌ Arquivo inválido'); }
   };
   reader.readAsText(file); event.target.value='';
 }
 
-// ── STORAGE ──
-loadState();
-
-// ── PWA / SERVICE WORKER (ícone do app ao instalar/adicionar atalho) ──
+// ── PWA / SERVICE WORKER ──
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(()=>{}); });
 }
@@ -1264,6 +1415,69 @@ renderGrupos(); renderComercios(); renderCondominios(); renderPublicadores(); re
   for(const s of saidasData){if(!s.endereco){const addr=await reverseGeocode(s.lat,s.lng); if(addr){s.endereco=addr;changed=true;}}}
   if(changed){renderGrupos(); if(activeTab==='grupos') renderList();}
 })();
+
+// ── FIREBASE AUTH INIT ──
+// Aguarda o módulo Firebase carregar
+function initFirebaseAuth() {
+  if (!window._fb) { setTimeout(initFirebaseAuth, 100); return; }
+  const { auth, onAuthStateChanged, signInWithPopup, provider, ADMIN_EMAIL } = window._fb;
+
+  // Listener de autenticação
+  onAuthStateChanged(auth, async (user) => {
+    const overlay = document.getElementById('authOverlay');
+    const loading = document.getElementById('authLoading');
+    const badge = document.getElementById('userBadge');
+    const photo = document.getElementById('userPhoto');
+    const nameEl = document.getElementById('userName');
+    const adminBadgeEl = document.getElementById('adminBadge');
+
+    if (user) {
+      // Usuário logado
+      overlay.classList.add('hidden');
+      loading.style.display = 'none';
+
+      // Mostra badge do usuário
+      photo.src = user.photoURL || '';
+      nameEl.textContent = user.displayName ? user.displayName.split(' ')[0] : user.email;
+      badge.style.display = 'flex';
+
+      // Define papel
+      applyUserRole(user);
+      if (user.email === ADMIN_EMAIL) {
+        adminBadgeEl.style.display = 'inline';
+        showSnack('👑 Bem-vinda, administradora!');
+      } else {
+        adminBadgeEl.style.display = 'none';
+        showSnack('✓ Logado como visitante — somente visualização');
+      }
+
+      // Carrega dados do Firebase
+      await loadState();
+
+    } else {
+      // Não logado — mostra tela de login
+      overlay.classList.remove('hidden');
+      loading.style.display = 'none';
+      badge.style.display = 'none';
+      currentUser = null;
+      isAdmin = false;
+    }
+  });
+
+  // Botão de login Google
+  document.getElementById('btnGoogleLogin').onclick = async () => {
+    const loading = document.getElementById('authLoading');
+    loading.style.display = 'block';
+    try {
+      await signInWithPopup(auth, provider);
+    } catch(e) {
+      loading.style.display = 'none';
+      alert('Erro ao fazer login: ' + e.message);
+    }
+  };
+}
+
+initFirebaseAuth();
 
 </script>
 </body>
