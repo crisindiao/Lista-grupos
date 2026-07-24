@@ -215,6 +215,22 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;}
 .resumo-lbl{font-size:0.68rem;color:var(--text2);font-weight:500;}
 .resumo-val.orange{color:#f59e0b;}
 
+/* cobertura de território */
+.cobertura-card{
+  background:var(--surface);border-radius:var(--r);
+  border:1.5px solid var(--border);
+  padding:16px;margin:0 16px;box-shadow:var(--sh1);
+  transition:transform .12s;
+}
+.cobertura-card:active{transform:scale(0.98);}
+.cobertura-top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px;}
+.cobertura-pct{font-size:1.7rem;font-weight:800;color:var(--purple);line-height:1;flex-shrink:0;}
+.cobertura-legend{display:flex;flex-direction:column;gap:4px;font-size:0.78rem;color:var(--text2);}
+.cobertura-legend .dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:5px;}
+.cobertura-legend b{color:var(--text);}
+.cobertura-bar-bg{background:#e0d5eb;border-radius:6px;height:8px;overflow:hidden;width:100%;}
+.cobertura-bar-fill{background:#1e8e3e;height:100%;transition:width .3s;}
+
 /* acoes rapidas */
 .acoes-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:0 16px;}
 .acao-btn{
@@ -561,6 +577,23 @@ body.viewer-mode #btnResetCobertura{display:none!important;}
       <div class="resumo-val orange" id="home-stat-total">0</div>
       <div class="resumo-lbl">Total Geral</div>
     </div>
+  </div>
+
+  <!-- Cobertura de Território -->
+  <div class="home-section">
+    <div class="home-section-head">
+      <span class="home-section-title">Cobertura de Território</span>
+    </div>
+  </div>
+  <div class="cobertura-card" onclick="goToCobertura()">
+    <div class="cobertura-top">
+      <div class="cobertura-pct" id="home-cob-pct">0%</div>
+      <div class="cobertura-legend">
+        <div><span class="dot" style="background:#1e8e3e"></span>Coberto: <b id="home-cob-feitas">0</b></div>
+        <div><span class="dot" style="background:#d93025"></span>Pendente: <b id="home-cob-pendentes">0</b></div>
+      </div>
+    </div>
+    <div class="cobertura-bar-bg"><div class="cobertura-bar-fill" id="home-cob-bar" style="width:0%"></div></div>
   </div>
 
   <!-- Ações Rápidas -->
@@ -1438,19 +1471,7 @@ function switchTab(name, btn) {
   }[name] || 'Gestão de Território';
 }
 
-function setViewMode(mode) {
-  viewMode = mode;
-  document.getElementById('nav-mapa').classList.toggle('active', mode==='mapa');
-  document.getElementById('nav-lista').classList.toggle('active', mode==='lista');
-  document.getElementById('map').style.display = mode==='mapa'?'block':'none';
-  document.getElementById('legendBox').style.display = mode==='mapa'?'block':'none';
-  document.querySelector('.locate-fab').style.display = mode==='mapa'?'flex':'none';
-  document.getElementById('listView').classList.toggle('show', mode==='lista');
-  document.getElementById('fabBtn').style.display = (mode==='mapa'&&editMode)?'flex':'none';
-  if (mode==='lista') { stopDrawing(); document.getElementById('drawToolbar').classList.remove('show'); hideHint(); }
-  if (mode==='mapa') { setTimeout(()=>map.invalidateSize(),50); }
-  if (mode==='lista') renderList();
-}
+// (setViewMode definitivo está mais abaixo, após switchTabChip)
 
 // ── LEGEND ──
 function updateLegend() {
@@ -1582,6 +1603,12 @@ function setViewMode(mode) {
   chipbar.classList.toggle('show', showChip);
   document.body.classList.toggle('show-chipbar', showChip);
 
+  // catbar: só mostra em mapa/lista E quando a aba ativa tem categorias (comércios/publicadores/quadras)
+  const catbar = document.getElementById('catbar');
+  const showCat = showChip && (activeTab==='comercios'||activeTab==='publicadores'||activeTab==='quadras');
+  catbar.classList.toggle('show', showCat);
+  document.body.classList.toggle('show-catbar', showCat);
+
   // nav active
   document.getElementById('nav-inicio').classList.toggle('active', mode==='home');
   document.getElementById('nav-mapa').classList.toggle('active', mode==='mapa');
@@ -1632,6 +1659,22 @@ function renderHomeStats() {
   document.getElementById('home-stat-quadras').textContent = quadrasData.length;
   const total = saidasData.length + comerciosData.length + condominiosData.length + publicadoresData.length + quadrasData.length;
   document.getElementById('home-stat-total').textContent = total;
+
+  const feitas = quadrasData.filter(qd=>qd.coberta).length;
+  const pendentes = quadrasData.length - feitas;
+  const pct = quadrasData.length ? Math.round(feitas/quadrasData.length*100) : 0;
+  document.getElementById('home-cob-pct').textContent = pct + '%';
+  document.getElementById('home-cob-feitas').textContent = feitas;
+  document.getElementById('home-cob-pendentes').textContent = pendentes;
+  document.getElementById('home-cob-bar').style.width = pct + '%';
+}
+
+function goToCobertura() {
+  switchTab('quadras');
+  setViewMode('mapa');
+  quadraCatMode = 'cobertura';
+  activeMapaFilter = null; activeQuadraGrupoFilter = null; activeCoberturaFilter = null;
+  renderCatbar(); renderQuadras(); updateLegend();
 }
 
 function renderHomeAtividades() {
