@@ -1270,7 +1270,7 @@ function renderGrupos() {
     marker.addTo(layerGroups.grupos); s._marker = marker;
   });
   document.getElementById('cnt-grupos').textContent = saidasData.length;
-  document.getElementById('stat-grupos').textContent = saidasData.length; saveState();
+  saveState();
 }
 function renderComercios() {
   layerGroups.comercios.clearLayers();
@@ -1282,7 +1282,7 @@ function renderComercios() {
     marker.addTo(layerGroups.comercios); c._marker = marker;
   });
   document.getElementById('cnt-comercios').textContent = comerciosData.length;
-  document.getElementById('stat-comercios').textContent = comerciosData.length; saveState();
+  saveState();
 }
 function renderCondominios() {
   layerGroups.condominios.clearLayers();
@@ -1293,7 +1293,7 @@ function renderCondominios() {
     marker.addTo(layerGroups.condominios); c._marker = marker;
   });
   document.getElementById('cnt-condominios').textContent = condominiosData.length;
-  document.getElementById('stat-condominios').textContent = condominiosData.length; saveState();
+  saveState();
 }
 function renderPublicadores() {
   layerGroups.publicadores.clearLayers();
@@ -1306,7 +1306,7 @@ function renderPublicadores() {
     marker.addTo(layerGroups.publicadores); p._marker = marker;
   });
   document.getElementById('cnt-publicadores').textContent = (activeGroupFilter?items.length+'/':'')+publicadoresData.length;
-  document.getElementById('stat-publicadores').textContent = publicadoresData.length; saveState();
+  saveState();
 }
 function renderQuadras() {
   layerGroups.quadras.clearLayers();
@@ -1339,7 +1339,7 @@ function renderQuadras() {
     qd._layer = poly;
   });
   document.getElementById('cnt-quadras').textContent = quadrasData.length;
-  document.getElementById('stat-quadras').textContent = quadrasData.length; saveState();
+  saveState();
 }
 function formatarDataBR(iso) {
   try { const d = new Date(iso); return d.toLocaleDateString('pt-BR'); } catch(e) { return ''; }
@@ -1376,7 +1376,6 @@ function deleteQuadra(idx) {
 
 // ── DRAW ──
 function onDrawClick(e) { if (!drawingQuadra) return; drawPoints.push([e.latlng.lat,e.latlng.lng]); updateDrawPreview(); }
-function updateDrawPreview() {
 function updateDrawPreview() {
   if (drawPreviewLayer) { map.removeLayer(drawPreviewLayer); drawPreviewLayer=null; }
   if (!drawPoints.length) return;
@@ -1905,9 +1904,9 @@ updateChipCounts();
 // Greeting da home
 function updateHomeGreeting(user) {
   const h = new Date().getHours();
-  const greet = h<12?'Bom dia':'h<18?Boa tarde':'Boa noite';
+  const greet = h<12?'Bom dia':h<18?'Boa tarde':'Boa noite';
   const name = user ? (user.displayName ? user.displayName.split(' ')[0] : 'por aqui') : '';
-  document.getElementById('homeGreeting').textContent = (h<12?'Bom dia':'h<18?Boa tarde':'Boa noite') + (name ? ', '+name+'! 👋' : '! 👋');
+  document.getElementById('homeGreeting').textContent = greet + (name ? ', '+name+'! 👋' : '! 👋');
   // fallback simples
   const saudacao = h<12?'Bom dia':h<18?'Boa tarde':'Boa noite';
   document.getElementById('homeGreeting').textContent = saudacao + (name ? ', '+name+'! 👋' : '! 👋');
