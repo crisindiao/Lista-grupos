@@ -2007,6 +2007,11 @@ function initFirebaseAuth() {
       // Carrega dados do Firebase
       await loadState();
 
+      // Garante que mapa/popups reflitam o papel (admin) já definido,
+      // mesmo que o Firestore não tenha retornado dados novos
+      renderGrupos(); renderComercios(); renderCondominios(); renderPublicadores(); renderQuadras();
+      updateLegend(); renderList(); renderHomeStats();
+
     } else {
       // Não logado — mostra tela de login
       overlay.classList.remove('hidden');
