@@ -917,11 +917,11 @@ function closeLightbox() {
 document.getElementById('lightboxClose').onclick = closeLightbox;
 document.getElementById('imgLightbox').onclick = (e) => { if (e.target.id === 'imgLightbox') closeLightbox(); };
 
-// ── ZOOM/PAN da imagem no lightbox ──
+// ── ZOOM/PAN da imagem no lightbox (zoom no ponto tocado/clicado) ──
 (function(){
   const img = document.getElementById('lightboxImg');
   let scale = 1, panX = 0, panY = 0;
-  let startDist = 0, startScale = 1;
+  let startDist = 0, startScale = 1, startMidX = 0, startMidY = 0;
   let dragging = false, dragStartX = 0, dragStartY = 0, panStartX = 0, panStartY = 0;
   let lastTap = 0;
 
@@ -936,28 +936,46 @@ document.getElementById('imgLightbox').onclick = (e) => { if (e.target.id === 'i
   }
   function clampScale(s) { return Math.min(5, Math.max(1, s)); }
 
-  // Clique/duplo-clique (desktop) e duplo-toque (mobile) alternam zoom
+  // Aplica novo scale mantendo fixo o ponto (clientX, clientY) da tela
+  function zoomTo(newScale, clientX, clientY) {
+    newScale = clampScale(newScale);
+    if (newScale === scale) return;
+    const rect = img.getBoundingClientRect();
+    const ratioX = (clientX - rect.left) / rect.width;
+    const ratioY = (clientY - rect.top) / rect.height;
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    const factor = newScale / scale;
+    const newWidth = rect.width * factor;
+    const newHeight = rect.height * factor;
+    const desiredLeft = clientX - ratioX * newWidth;
+    const desiredTop = clientY - ratioY * newHeight;
+    const centerLeft = cx - newWidth / 2;
+    const centerTop = cy - newHeight / 2;
+    panX += desiredLeft - centerLeft;
+    panY += desiredTop - centerTop;
+    scale = newScale;
+    if (scale === 1) { panX = 0; panY = 0; }
+    apply();
+  }
+
+  // Clique/duplo-clique (desktop) e duplo-toque (mobile) alternam zoom no ponto tocado
   img.addEventListener('click', (e) => {
     e.stopPropagation();
     const now = Date.now();
-    if (now - lastTap < 350) {
-      // duplo toque/clique
-      if (scale === 1) { scale = 2.5; } else { scale = 1; panX = 0; panY = 0; }
-      apply();
-    } else if (scale === 1) {
-      scale = 2; apply();
-    } else {
+    const isDoubleTap = (now - lastTap < 350);
+    if (scale > 1) {
       scale = 1; panX = 0; panY = 0; apply();
+    } else {
+      zoomTo(isDoubleTap ? 2.5 : 2, e.clientX, e.clientY);
     }
     lastTap = now;
   });
 
-  // Roda do mouse (desktop)
+  // Roda do mouse (desktop) — zoom no ponto do cursor
   img.addEventListener('wheel', (e) => {
     e.preventDefault();
-    scale = clampScale(scale - e.deltaY * 0.0025);
-    if (scale === 1) { panX = 0; panY = 0; }
-    apply();
+    zoomTo(scale - e.deltaY * 0.0025, e.clientX, e.clientY);
   }, { passive: false });
 
   // Arrastar quando ampliada (mouse)
@@ -974,11 +992,14 @@ document.getElementById('imgLightbox').onclick = (e) => { if (e.target.id === 'i
   });
   window.addEventListener('mouseup', () => { dragging = false; img.classList.remove('dragging'); });
 
-  // Pinça e arraste (touch)
+  // Pinça (zoom no ponto médio dos dois dedos) e arraste (touch)
   img.addEventListener('touchstart', (e) => {
     if (e.touches.length === 2) {
       startDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
       startScale = scale;
+      startMidX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+      startMidY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+      dragging = false;
     } else if (e.touches.length === 1 && scale > 1) {
       dragging = true;
       dragStartX = e.touches[0].clientX; dragStartY = e.touches[0].clientY;
@@ -989,8 +1010,10 @@ document.getElementById('imgLightbox').onclick = (e) => { if (e.target.id === 'i
     if (e.touches.length === 2) {
       e.preventDefault();
       const dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
-      scale = clampScale(startScale * (dist / startDist));
-      apply();
+      const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+      const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+      zoomTo(startScale * (dist / startDist), midX, midY);
+      startMidX = midX; startMidY = midY;
     } else if (e.touches.length === 1 && dragging) {
       e.preventDefault();
       panX = panStartX + (e.touches[0].clientX - dragStartX);
