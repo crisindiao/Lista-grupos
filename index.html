@@ -1749,9 +1749,11 @@ function renderCatbar() {
     });
     box.innerHTML = html;
     box.querySelectorAll('.cat-chip').forEach(btn=>{btn.onclick=()=>{
-      activeSaidaGrupoFilter = btn.dataset.sgrp || null;
-      renderCatbar(); renderGrupos(); updateLegend(); if (viewMode==='lista') renderList();
-      if (activeSaidaGrupoFilter) { const m=saidasData.filter(s=>s.grupo===activeSaidaGrupoFilter&&s._marker); if (m.length) { const g=L.featureGroup(m.map(s=>s._marker)); map.fitBounds(g.getBounds(),{padding:[40,40]}); } }
+      const g = btn.dataset.sgrp || null;
+      activeGroupFilter = g;
+      switchTab('publicadores');
+      setViewMode('mapa');
+      if (g) { const items = publicadoresData.filter(p=>p.grupo===g && p._marker); if (items.length) { const fg=L.featureGroup(items.map(p=>p._marker)); map.fitBounds(fg.getBounds(),{padding:[40,40]}); } }
     };});
     return;
   }
