@@ -1744,8 +1744,8 @@ function renderCatbar() {
   if (activeTab==='grupos') {
     let html = `<button class="cat-chip${activeSaidaGrupoFilter?'':' active'}" data-sgrp="">Todos <span class="count">${saidasData.length}</span></button>`;
     Object.keys(groupColors).forEach(g=>{
-      const countPub = publicadoresData.filter(p=>p.grupo===g).length;
-      html += `<button class="cat-chip${activeSaidaGrupoFilter===g?' active':''}" data-sgrp="${g}"><span class="dot" style="background:${groupColors[g]};width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:4px"></span>${g} <span class="count">👥 ${countPub}</span></button>`;
+      const countPessoas = publicadoresData.filter(p=>p.grupo===g).reduce((sum,p)=>sum+(p.membros?p.membros.length:0),0);
+      html += `<button class="cat-chip${activeSaidaGrupoFilter===g?' active':''}" data-sgrp="${g}"><span class="dot" style="background:${groupColors[g]};width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:4px"></span>${g} <span class="count">👥 ${countPessoas}</span></button>`;
     });
     box.innerHTML = html;
     box.querySelectorAll('.cat-chip').forEach(btn=>{btn.onclick=()=>{
@@ -1796,7 +1796,16 @@ function renderCatbar() {
   let html=`<button class="cat-chip${activeCategoryFilter?'':' active'}" data-cat="">Todos <span class="count">${comerciosData.length}</span></button>`;
   catNames.forEach(cat=>{const count=comerciosData.filter(c=>c.categoria===cat).length; html+=`<button class="cat-chip${activeCategoryFilter===cat?' active':''}" data-cat="${cat}"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${cats[cat]};margin-right:4px"></span>${cat} <span class="count">${count}</span></button>`;});
   box.innerHTML=html;
-  box.querySelectorAll('.cat-chip').forEach(btn=>{btn.onclick=()=>{activeCategoryFilter=btn.dataset.cat||null; renderCatbar(); renderComercios();};});
+  box.querySelectorAll('.cat-chip').forEach(btn=>{btn.onclick=()=>{
+    activeCategoryFilter=btn.dataset.cat||null;
+    renderCatbar();
+    renderComercios();
+    setViewMode('mapa');
+    if (activeCategoryFilter) {
+      const items = comerciosData.filter(c=>c.categoria===activeCategoryFilter && c._marker);
+      if (items.length) { const fg=L.featureGroup(items.map(c=>c._marker)); map.fitBounds(fg.getBounds(),{padding:[40,40]}); }
+    }
+  };});
 }
 
 // ── GLOBAL SEARCH ──
